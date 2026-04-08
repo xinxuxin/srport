@@ -4,6 +4,8 @@
 
 :root {
   color-scheme: light;
+  --font-heading: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", "Menlo", monospace;
 }
 
 body {

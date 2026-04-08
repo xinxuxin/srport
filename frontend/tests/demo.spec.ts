@@ -19,6 +19,9 @@ test("upload success renders output and updates usage dashboard", async ({ page 
 
   await expect(page.getByTestId("output-image")).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId("compare-slider")).toBeVisible();
+  await page.waitForTimeout(1800);
+  await page.getByTestId("compare-slider").fill("75");
+  await expect(page.getByTestId("compare-slider")).toHaveValue("75");
 
   await expect
     .poll(async () => {
@@ -46,4 +49,16 @@ test("refresh retains dashboard without crashing after inference", async ({ page
 
   await expect(page.getByText("Usage and runtime history")).toBeVisible();
   await expect(page.getByText("Inference activity")).toBeVisible();
+});
+
+test("batch mode renders aggregate stats", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Batch queue" }).click();
+  await page
+    .getByTestId("upload-input")
+    .setInputFiles([sampleImagePath, sampleImagePath]);
+
+  await expect(page.getByText("2/2")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText("Batch aggregate")).toBeVisible();
+  await expect(page.getByText("Output MP")).toBeVisible();
 });

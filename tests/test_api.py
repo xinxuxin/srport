@@ -70,6 +70,46 @@ def test_infer_alias_and_usage_routes_work() -> None:
     assert recent_response.status_code == 200
     assert summary_response.json()["total_requests"] >= 1
     assert len(recent_response.json()["recent_events"]) >= 1
+    assert "p50_latency_ms" in summary_response.json()
+    assert "p95_latency_ms" in summary_response.json()
+
+
+def test_batch_infer_and_history_routes_work() -> None:
+    client = TestClient(create_app())
+    first = io.BytesIO()
+    second = io.BytesIO()
+    Image.new("RGB", (8, 8), color=(200, 20, 80)).save(first, format="PNG")
+    Image.new("RGB", (10, 6), color=(20, 180, 100)).save(second, format="PNG")
+
+    response = client.post(
+        "/api/v1/infer/batch",
+        data={
+            "session_id": "session-batch",
+            "method": "baseline",
+            "scale": "2",
+            "output_format": "WEBP",
+            "tile_size": "0",
+        },
+        files=[
+            ("files", ("sample1.png", first.getvalue(), "image/png")),
+            ("files", ("sample2.png", second.getvalue(), "image/png")),
+        ],
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["aggregate"]["total_files"] == 2
+    assert payload["aggregate"]["completed_files"] == 2
+    assert len(payload["results"]) == 2
+    request_id = payload["results"][0]["request_id"]
+
+    history_response = client.get(f"/api/v1/history/{request_id}")
+    assert history_response.status_code == 200
+    history_payload = history_response.json()
+    assert history_payload["session_id"] == "session-batch"
+    assert history_payload["output_format"] == "WEBP"
+    assert history_payload["upscale"] == 2
+    assert history_payload["input_image_url"].startswith("/artifacts/")
+    assert history_payload["output_image_url"].startswith("/artifacts/")
 
 
 def test_invalid_image_bytes_return_friendly_error() -> None:
