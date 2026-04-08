@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Tuple
 
 import torch
 import torch.nn.functional as torch_f
@@ -127,9 +126,8 @@ class WindowAttention(nn.Module):
         query = query * self.scale
 
         attention = query @ key.transpose(-2, -1)
-        relative_position_bias = self.relative_position_bias_table[
-            self.relative_position_index.reshape(-1)
-        ]
+        index = self.relative_position_index.reshape(-1).to(torch.long)  # type: ignore[operator]
+        relative_position_bias = self.relative_position_bias_table[index]
         relative_position_bias = relative_position_bias.view(tokens, tokens, -1)
         relative_position_bias = relative_position_bias.permute(2, 0, 1).unsqueeze(0)
         attention = attention + relative_position_bias
@@ -290,7 +288,7 @@ class ESPM(nn.Module):
         self.out_conv = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
 
     def forward(self, x: Tensor) -> Tensor:
-        pyramid: List[Tensor] = [self.entry(x)]
+        pyramid: list[Tensor] = [self.entry(x)]
         features = pyramid[0]
         for block in self.pyramid_blocks:
             features = torch_f.avg_pool2d(features, kernel_size=2, stride=2, ceil_mode=True)

@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from .data import EvaluationImageDataset
 from .metrics import evaluate_prediction
-from .model import EPNet, load_model_from_checkpoint
+from .model import load_model_from_checkpoint
 
 
 def evaluate(checkpoint_path: Path, hr_dir: Path) -> dict[str, object]:
@@ -43,7 +43,9 @@ def evaluate(checkpoint_path: Path, hr_dir: Path) -> dict[str, object]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Evaluate EPNet on a high-resolution image folder.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate EPNet on a high-resolution image folder."
+    )
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--hr-dir", type=Path, required=True)
     return parser

@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from typing import List
-
-import torch
 from torch import Tensor, nn
 
 from .config import ModelConfig
@@ -64,7 +61,7 @@ class EPNet(nn.Module):
         pfem, espm = self.forward_features(x)
         return self.reconstruction(pfem + espm)
 
-    def profile_input_shape(self) -> List[int]:
+    def profile_input_shape(self) -> list[int]:
         return [1, self.config.in_channels, 48, 48]
 
 

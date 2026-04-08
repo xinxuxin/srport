@@ -10,8 +10,10 @@ This repository reproduces the paper's EPNet architecture as faithfully as possi
 - Paper defaults captured in configuration and training CLI.
 - Evaluation pipeline with PSNR and SSIM.
 - Inference CLI with parameter count, estimated MACs/FLOPs, and latency profiling.
+- FastAPI backend with `/health`, `/model/info`, `/super-resolve`, and `/analytics/summary`.
+- SQLite usage analytics for inference requests.
 - Explicit reproduction notes in [docs/epnet_assumptions.md](/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md).
-- FastAPI backend, frontend, analytics, and Docker are added in later phases.
+- Next.js frontend and Docker are added in later phases.
 
 ## Project Structure
 
@@ -43,15 +45,21 @@ This repository reproduces the paper's EPNet architecture as faithfully as possi
 These work once the Python dependencies are installed:
 
 ```bash
+python3 -m venv .venv
+.venv/bin/pip install '.[dev]'
 PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --train-dir path/to/div2k_train_hr
 PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4.pt --hr-dir path/to/benchmark_hr
 PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4.pt --input input.png --output output.png
+PYTHONPATH=src .venv/bin/uvicorn epnet_api.app.main:app --reload
 ```
 
 ## Verification So Far
 
 - `PYTHONPATH=src PYTHONPYCACHEPREFIX=.pycache python3 -m compileall src`
 - `PYTHONPATH=src python3` smoke tests for model construction and forward pass
+- `.venv/bin/ruff check src tests`
+- `PYTHONPATH=src .venv/bin/pytest`
+- `PYTHONPATH=src .venv/bin/mypy src`
 
 ## Reproduction Notes
 

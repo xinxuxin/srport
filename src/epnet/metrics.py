@@ -6,13 +6,22 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 import torch.nn.functional as torch_f
+from numpy.typing import NDArray
 from torch import Tensor
 
 
-def _to_y_channel(array: np.ndarray) -> np.ndarray:
+def _to_y_channel(array: NDArray[np.float32]) -> NDArray[np.float32]:
     if array.ndim != 3 or array.shape[2] != 3:
         raise ValueError("Expected RGB image")
-    y = 16.0 + (65.738 * array[:, :, 0] + 129.057 * array[:, :, 1] + 25.064 * array[:, :, 2]) / 256.0
+    y = (
+        16.0
+        + (
+            65.738 * array[:, :, 0]
+            + 129.057 * array[:, :, 1]
+            + 25.064 * array[:, :, 2]
+        )
+        / 256.0
+    )
     return y
 
 
@@ -50,14 +59,14 @@ class MetricResult:
     ssim: float
 
 
-def calculate_psnr(prediction: np.ndarray, target: np.ndarray) -> float:
+def calculate_psnr(prediction: NDArray[np.float32], target: NDArray[np.float32]) -> float:
     mse = float(np.mean((prediction.astype(np.float64) - target.astype(np.float64)) ** 2))
     if mse == 0.0:
         return float("inf")
     return 20.0 * math.log10(255.0 / math.sqrt(mse))
 
 
-def calculate_ssim(prediction: np.ndarray, target: np.ndarray) -> float:
+def calculate_ssim(prediction: NDArray[np.float32], target: NDArray[np.float32]) -> float:
     pred_tensor = torch.from_numpy(prediction).float().unsqueeze(0).unsqueeze(0)
     target_tensor = torch.from_numpy(target).float().unsqueeze(0).unsqueeze(0)
     return float(_ssim_per_channel(pred_tensor, target_tensor).item())
@@ -84,4 +93,7 @@ def evaluate_prediction(
             ssim=calculate_ssim(pred_y, tgt_y),
         )
 
-    return MetricResult(psnr=calculate_psnr(pred, tgt), ssim=calculate_ssim(pred[:, :, 0], tgt[:, :, 0]))
+    return MetricResult(
+        psnr=calculate_psnr(pred, tgt),
+        ssim=calculate_ssim(pred[:, :, 0], tgt[:, :, 0]),
+    )

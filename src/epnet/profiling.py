@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Dict, List
 
 import torch
 from torch import Tensor, nn
@@ -24,7 +23,11 @@ def count_parameters(model: nn.Module) -> int:
 
 def _conv_macs(module: nn.Conv2d, output: Tensor) -> int:
     batch, out_channels, out_h, out_w = output.shape
-    kernel_ops = module.kernel_size[0] * module.kernel_size[1] * (module.in_channels // module.groups)
+    kernel_ops = (
+        module.kernel_size[0]
+        * module.kernel_size[1]
+        * (module.in_channels // module.groups)
+    )
     return batch * out_channels * out_h * out_w * kernel_ops
 
 
@@ -48,8 +51,8 @@ def profile_model(
     warmup: int = 1,
     iters: int = 5,
 ) -> ModelProfile:
-    macs: Dict[str, int] = {"value": 0}
-    hooks: List[torch.utils.hooks.RemovableHandle] = []
+    macs: dict[str, int] = {"value": 0}
+    hooks: list[torch.utils.hooks.RemovableHandle] = []
 
     def conv_hook(module: nn.Module, _inputs: tuple[Tensor, ...], output: Tensor) -> None:
         if isinstance(module, nn.Conv2d):

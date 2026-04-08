@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Iterable
 
 import torch
 from torch import Tensor, nn
 from torch.optim import Adam
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from .config import ModelConfig, TrainConfig
 from .data import SyntheticPatternDataset, TrainImageFolderDataset
@@ -17,10 +17,9 @@ from .model import EPNet
 from .utils import ensure_dir, set_seed
 
 
-def _cycle(loader: Iterable[tuple[Tensor, Tensor]]) -> Iterable[tuple[Tensor, Tensor]]:
+def _cycle(loader: Iterable[tuple[Tensor, Tensor]]) -> Iterator[tuple[Tensor, Tensor]]:
     while True:
-        for batch in loader:
-            yield batch
+        yield from loader
 
 
 def save_checkpoint(
@@ -64,7 +63,11 @@ def train(
     ema = ExponentialMovingAverage(model, train_config.ema_decay)
 
     if train_dir is not None:
-        dataset = TrainImageFolderDataset(train_dir, train_config.patch_size, train_config.scale)
+        dataset: Dataset[tuple[Tensor, Tensor]] = TrainImageFolderDataset(
+            train_dir,
+            train_config.patch_size,
+            train_config.scale,
+        )
     else:
         synthetic_size = train_config.patch_size * 2
         dataset = SyntheticPatternDataset(
@@ -106,8 +109,15 @@ def train(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Train EPNet for single-image super-resolution.")
-    parser.add_argument("--train-dir", type=Path, default=None, help="Directory of high-resolution images.")
+    parser = argparse.ArgumentParser(
+        description="Train EPNet for single-image super-resolution."
+    )
+    parser.add_argument(
+        "--train-dir",
+        type=Path,
+        default=None,
+        help="Directory of high-resolution images.",
+    )
     parser.add_argument("--output", type=Path, required=True, help="Checkpoint output path.")
     parser.add_argument("--scale", type=int, default=4)
     parser.add_argument("--patch-size", type=int, default=48)
@@ -129,7 +139,13 @@ def main() -> None:
         batch_size=args.batch_size,
         total_steps=args.steps,
     )
-    train(args.train_dir, args.output, model_config, train_config, synthetic_count=args.synthetic_count)
+    train(
+        args.train_dir,
+        args.output,
+        model_config,
+        train_config,
+        synthetic_count=args.synthetic_count,
+    )
 
 
 if __name__ == "__main__":

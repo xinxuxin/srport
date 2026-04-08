@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 import random
 from pathlib import Path
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -41,10 +40,9 @@ def tensor_to_pil(tensor: torch.Tensor) -> Image.Image:
     return Image.fromarray(array)
 
 
-def resize_bicubic(image: Image.Image, size: Tuple[int, int]) -> Image.Image:
+def resize_bicubic(image: Image.Image, size: tuple[int, int]) -> Image.Image:
     return image.resize(size, resample=Image.Resampling.BICUBIC)
 
 
 def make_divisible(value: int, divisor: int) -> int:
     return int(math.ceil(value / divisor) * divisor)
-

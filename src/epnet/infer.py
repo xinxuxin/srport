@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import torch
 
@@ -12,7 +12,7 @@ from .profiling import profile_model
 from .utils import load_image, pil_to_tensor, save_image, tensor_to_pil
 
 
-def run_inference(checkpoint_path: Path, input_path: Path, output_path: Path) -> Dict[str, Any]:
+def run_inference(checkpoint_path: Path, input_path: Path, output_path: Path) -> dict[str, Any]:
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
     model = load_model_from_checkpoint(checkpoint)
     ema_state = checkpoint.get("ema_state")

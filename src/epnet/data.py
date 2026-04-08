@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-import math
 import random
 from pathlib import Path
-from typing import Callable, List, Sequence
 
-import numpy as np
-import torch
 from PIL import Image, ImageDraw, ImageFilter
 from torch import Tensor
 from torch.utils.data import Dataset
@@ -16,7 +12,7 @@ from .utils import load_image, pil_to_tensor, resize_bicubic
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 
 
-def list_images(directory: Path) -> List[Path]:
+def list_images(directory: Path) -> list[Path]:
     return sorted(path for path in directory.rglob("*") if path.suffix.lower() in IMAGE_EXTENSIONS)
 
 
