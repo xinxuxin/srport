@@ -24,7 +24,7 @@ def test_epnet_upscales_by_factor_four() -> None:
 def test_epnet_parameter_regime_is_lightweight() -> None:
     model = EPNet()
     params = count_parameters(model)
-    assert 430_000 <= params <= 520_000
+    assert 240_000 <= params <= 320_000
 
 
 def test_epnet_supports_x2_x3_and_x4_shapes_without_nans() -> None:
@@ -37,9 +37,9 @@ def test_epnet_supports_x2_x3_and_x4_shapes_without_nans() -> None:
         assert not torch.isnan(output).any()
 
 
-def test_tiny_variant_is_smaller_than_paper_variant() -> None:
-    tiny = EPNet(model_config_from_variant("tiny"))
-    paper = EPNet(model_config_from_variant("paper"))
+def test_edge_tiny_variant_is_smaller_than_paper_like_variant() -> None:
+    tiny = EPNet(model_config_from_variant("edge_tiny"))
+    paper = EPNet(model_config_from_variant("paper_like"))
     assert count_parameters(tiny) < count_parameters(paper)
 
 

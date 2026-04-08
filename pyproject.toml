@@ -13,6 +13,7 @@ dependencies = [
   "numpy>=1.24,<3.0",
   "pillow>=10.0,<12.0",
   "pydantic>=2.6,<3.0",
+  "pyyaml>=6.0,<7.0",
   "python-multipart>=0.0.9,<1.0",
   "torch>=2.1,<3.0",
   "uvicorn[standard]>=0.29,<1.0",
@@ -30,7 +31,10 @@ dev = [
 epnet-train = "epnet.train:main"
 epnet-eval = "epnet.evaluate:main"
 epnet-infer = "epnet.infer:main"
-epnet-ablate = "epnet.experiments:main"
+epnet-ablate = "epnet.ablate:main"
+epnet-profile = "epnet.profile:main"
+epnet-export = "epnet.export:main"
+epnet = "epnet.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

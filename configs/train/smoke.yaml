@@ -1,0 +1,17 @@
+scale: 2
+patch_size: 48
+batch_size: 2
+total_steps: 4
+save_every: 2
+log_every: 1
+num_workers: 0
+seed: 42
+device: auto
+amp: "off"
+channels_last: true
+val_every: 2
+max_validation_images: 4
+checkpoint_history: 1
+run_name: smoke_edge_default_x2
+output_root: outputs
+auto_resume: false

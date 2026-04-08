@@ -1,4 +1,17 @@
-from .config import InferenceConfig, ModelConfig, TrainConfig, model_config_from_variant
-from .model import EPNet
+from .config import (
+    DataConfig,
+    InferenceConfig,
+    ModelConfig,
+    TrainConfig,
+    model_config_from_variant,
+)
+from .models import EPNet
 
-__all__ = ["EPNet", "InferenceConfig", "ModelConfig", "TrainConfig", "model_config_from_variant"]
+__all__ = [
+    "DataConfig",
+    "EPNet",
+    "InferenceConfig",
+    "ModelConfig",
+    "TrainConfig",
+    "model_config_from_variant",
+]

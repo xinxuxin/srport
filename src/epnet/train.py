@@ -5,27 +5,48 @@ import json
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from statistics import mean
+from typing import Any
 
 import torch
 from torch import Tensor, nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 
-from .config import MODEL_VARIANTS, ModelConfig, TrainConfig, model_config_from_variant
-from .data import EvaluationImageDataset, SyntheticPatternDataset, TrainImageFolderDataset
-from .device import (
-    DeviceContext,
+from .config import (
+    MODEL_PRESETS,
+    DataConfig,
+    ModelConfig,
+    TrainConfig,
+    load_data_config,
+    load_model_config,
+    load_train_config,
+    model_config_from_variant,
+)
+from .data import (
+    EvaluationImageDataset,
+    SyntheticPatternDataset,
+    TrainImageFolderDataset,
+    build_dataset_paths,
+    build_validation_datasets,
+    synthetic_pattern_image,
+)
+from .ema import ExponentialMovingAverage
+from .model import EPNet, load_checkpoint
+from .utils import (
+    append_jsonl,
     autocast_context,
     build_device_context,
     configure_backend,
     create_grad_scaler,
+    ensure_dir,
+    evaluate_prediction,
+    get_git_commit,
     model_memory_format,
     move_optimizer_state,
+    set_seed,
+    snapshot_config,
+    write_json,
 )
-from .ema import ExponentialMovingAverage
-from .metrics import evaluate_prediction
-from .model import EPNet, load_checkpoint
-from .utils import ensure_dir, set_seed
 
 
 def _cycle(loader: Iterable[tuple[Tensor, Tensor]]) -> Iterator[tuple[Tensor, Tensor]]:
@@ -34,14 +55,20 @@ def _cycle(loader: Iterable[tuple[Tensor, Tensor]]) -> Iterator[tuple[Tensor, Te
 
 
 def _checkpoint_snapshot_path(output_path: Path, step: int) -> Path:
+    if output_path.stem == "latest":
+        return output_path.with_name(f"step{step}{output_path.suffix}")
     return output_path.with_name(f"{output_path.stem}_step{step}{output_path.suffix}")
 
 
 def _best_checkpoint_path(output_path: Path) -> Path:
+    if output_path.stem == "latest":
+        return output_path.with_name(f"best{output_path.suffix}")
     return output_path.with_name(f"{output_path.stem}_best{output_path.suffix}")
 
 
 def _inference_checkpoint_path(output_path: Path) -> Path:
+    if output_path.stem == "latest":
+        return output_path.with_name(f"inference{output_path.suffix}")
     return output_path.with_name(f"{output_path.stem}_inference{output_path.suffix}")
 
 
@@ -108,7 +135,7 @@ def export_inference_checkpoint(
 def _make_loader(
     dataset: Dataset[tuple[Tensor, Tensor]],
     train_config: TrainConfig,
-    device_context: DeviceContext,
+    device_context: Any,
     *,
     shuffle: bool,
 ) -> DataLoader[tuple[Tensor, Tensor]]:
@@ -136,7 +163,7 @@ def _make_loader(
 def _prepare_batch(
     lr_batch: Tensor,
     hr_batch: Tensor,
-    device_context: DeviceContext,
+    device_context: Any,
 ) -> tuple[Tensor, Tensor]:
     memory_format = model_memory_format(device_context)
     lr = lr_batch.to(
@@ -153,7 +180,10 @@ def _prepare_batch(
 def _retain_checkpoint_history(output_path: Path, keep: int) -> None:
     if keep <= 0:
         return
-    history = sorted(output_path.parent.glob(f"{output_path.stem}_step*{output_path.suffix}"))
+    if output_path.stem == "latest":
+        history = sorted(output_path.parent.glob(f"step*{output_path.suffix}"))
+    else:
+        history = sorted(output_path.parent.glob(f"{output_path.stem}_step*{output_path.suffix}"))
     for path in history[:-keep]:
         path.unlink(missing_ok=True)
 
@@ -162,7 +192,7 @@ def validate(
     model: nn.Module,
     hr_dir: Path,
     scale: int,
-    device_context: DeviceContext,
+    device_context: Any,
     *,
     max_images: int = 8,
 ) -> dict[str, float]:
@@ -201,6 +231,7 @@ def train(
     synthetic_count: int = 0,
     resume_path: Path | None = None,
     val_dir: Path | None = None,
+    train_log_path: Path | None = None,
 ) -> Path:
     if train_config.scale != model_config.upscale:
         raise ValueError(
@@ -311,16 +342,15 @@ def train(
         latest_loss = float(loss.item())
 
         if step % train_config.log_every == 0 or step == 1:
-            print(
-                json.dumps(
-                    {
-                        "step": step,
-                        "loss": round(latest_loss, 6),
-                        "device": device_context.device.type,
-                        "amp": device_context.amp_enabled,
-                    }
-                )
-            )
+            log_payload = {
+                "step": step,
+                "loss": round(latest_loss, 6),
+                "device": device_context.device.type,
+                "amp": device_context.amp_enabled,
+            }
+            print(json.dumps(log_payload))
+            if train_log_path is not None:
+                append_jsonl(train_log_path, log_payload)
 
         run_validation = (
             val_dir is not None
@@ -336,15 +366,14 @@ def train(
                 device_context,
                 max_images=train_config.max_validation_images,
             )
-            print(
-                json.dumps(
-                    {
-                        "step": step,
-                        "validation_psnr": round(last_validation_metrics["psnr"], 4),
-                        "validation_ssim": round(last_validation_metrics["ssim"], 5),
-                    }
-                )
-            )
+            validation_payload = {
+                "step": step,
+                "validation_psnr": round(last_validation_metrics["psnr"], 4),
+                "validation_ssim": round(last_validation_metrics["ssim"], 5),
+            }
+            print(json.dumps(validation_payload))
+            if train_log_path is not None:
+                append_jsonl(train_log_path, validation_payload)
             current_psnr = last_validation_metrics["psnr"]
             if train_config.save_best and (best_psnr is None or current_psnr >= best_psnr):
                 best_psnr = current_psnr
@@ -403,38 +432,143 @@ def train(
         train_config.total_steps,
         best_psnr=best_psnr,
     )
-    print(
-        json.dumps(
-            {
-                "final_checkpoint": str(output_path),
-                "inference_checkpoint": str(inference_path),
-                "device": device_context.device.type,
-                "best_psnr": best_psnr,
-            }
-        )
-    )
+    summary_payload = {
+        "final_checkpoint": str(output_path),
+        "inference_checkpoint": str(inference_path),
+        "device": device_context.device.type,
+        "best_psnr": best_psnr,
+    }
+    print(json.dumps(summary_payload))
+    if train_log_path is not None:
+        append_jsonl(train_log_path, summary_payload)
     return output_path
 
 
+def _prepare_synthetic_eval_dir(data_config: DataConfig) -> Path:
+    eval_dir = Path(data_config.processed_root) / f"synthetic_eval_x{data_config.scale}"
+    ensure_dir(eval_dir)
+    for index in range(data_config.synthetic_eval_count):
+        image = synthetic_pattern_image(
+            size=data_config.synthetic_image_size,
+            seed=10_000 + index,
+        )
+        image.save(eval_dir / f"synthetic_{index:02d}.png")
+    return eval_dir
+
+
+def run_training_from_configs(
+    model_config: ModelConfig,
+    data_config: DataConfig,
+    train_config: TrainConfig,
+    *,
+    explicit_resume: Path | None = None,
+) -> Path:
+    if model_config.upscale != data_config.scale or model_config.upscale != train_config.scale:
+        raise ValueError("Model, data, and train scale must match.")
+
+    run_dir = Path(train_config.output_root) / train_config.run_name
+    ensure_dir(run_dir)
+    config_snapshot_dir = run_dir / "config_snapshot"
+    ensure_dir(config_snapshot_dir)
+    snapshot_config(config_snapshot_dir / "model.json", model_config.to_dict())
+    snapshot_config(config_snapshot_dir / "data.json", data_config.to_dict())
+    snapshot_config(config_snapshot_dir / "train.json", train_config.to_dict())
+
+    latest_checkpoint = run_dir / "latest.pt"
+    resume_path = explicit_resume
+    if resume_path is None and train_config.auto_resume and latest_checkpoint.exists():
+        resume_path = latest_checkpoint
+
+    if data_config.dataset_type == "synthetic":
+        train_dir = None
+        val_dir = _prepare_synthetic_eval_dir(data_config)
+    else:
+        paths = build_dataset_paths(Path(data_config.dataset_root))
+        train_dir = Path(data_config.train_hr_dir or paths.div2k_train_hr)
+        val_dir = paths.div2k_valid_hr
+        if not train_dir.exists():
+            raise FileNotFoundError(
+                f"Training HR directory does not exist: {train_dir}. "
+                "Run the dataset setup scripts or place DIV2K manually."
+            )
+        if not val_dir.exists():
+            raise FileNotFoundError(
+                f"Validation HR directory does not exist: {val_dir}. "
+                "Run the dataset setup scripts or place DIV2K manually."
+            )
+
+    manifest = {
+        "git_commit": get_git_commit(Path.cwd()),
+        "device": train_config.device,
+        "seed": train_config.seed,
+        "command_used": train_config.manifest_command,
+        "dataset_paths": {
+            "train_hr_dir": str(train_dir) if train_dir is not None else "synthetic",
+            "val_dir": str(val_dir),
+            "dataset_root": data_config.dataset_root,
+        },
+        "config_snapshot": {
+            "model": model_config.to_dict(),
+            "data": data_config.to_dict(),
+            "train": train_config.to_dict(),
+        },
+    }
+    write_json(run_dir / "manifest.json", manifest)
+
+    train(
+        train_dir=train_dir,
+        output_path=latest_checkpoint,
+        model_config=model_config,
+        train_config=train_config,
+        synthetic_count=data_config.synthetic_count,
+        resume_path=resume_path,
+        val_dir=val_dir,
+        train_log_path=run_dir / "train_log.jsonl",
+    )
+
+    from .evaluate import evaluate_run
+    from .profile import profile_checkpoint
+
+    datasets = build_validation_datasets(data_config, train_config.scale)
+    eval_summary = evaluate_run(
+        checkpoint_path=run_dir / "inference.pt",
+        datasets=datasets,
+        device=train_config.device,
+        output_json=run_dir / "eval.json",
+        output_markdown=run_dir / "eval.md",
+    )
+    profile_checkpoint(
+        checkpoint_path=run_dir / "inference.pt",
+        device=train_config.device,
+        onnx_export_path=run_dir / "model.onnx",
+        output_json=run_dir / "profile.json",
+        output_markdown=run_dir / "profile.md",
+    )
+    write_json(run_dir / "final_summary.json", eval_summary)
+    return run_dir
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Train EPNet for single-image super-resolution."
-    )
-    parser.add_argument(
-        "--train-dir",
-        type=Path,
-        default=None,
-        help="Directory of high-resolution images.",
-    )
+    parser = argparse.ArgumentParser(description="Train EPNet for single-image super-resolution.")
+    parser.add_argument("--model-config", type=Path, default=None)
+    parser.add_argument("--data-config", type=Path, default=None)
+    parser.add_argument("--train-config", type=Path, default=None)
+
+    parser.add_argument("--train-dir", type=Path, default=None, help="Directory of HR images.")
     parser.add_argument(
         "--val-dir",
         type=Path,
         default=None,
         help="Optional validation HR directory.",
     )
-    parser.add_argument("--output", type=Path, required=True, help="Checkpoint output path.")
+    parser.add_argument("--output", type=Path, default=None, help="Checkpoint output path.")
     parser.add_argument("--scale", type=int, default=4)
-    parser.add_argument("--variant", type=str, default="paper", choices=sorted(MODEL_VARIANTS))
+    parser.add_argument(
+        "--variant",
+        type=str,
+        default="edge_default",
+        choices=sorted(MODEL_PRESETS),
+    )
     parser.add_argument("--patch-size", type=int, default=48)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--steps", type=int, default=1_000_000)
@@ -462,9 +596,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
-    parser = build_parser()
-    args = parser.parse_args()
+def _run_legacy_cli(args: argparse.Namespace) -> None:
+    if args.output is None:
+        raise ValueError("--output is required when config files are not provided.")
 
     model_config = model_config_from_variant(
         args.variant,
@@ -492,6 +626,7 @@ def main() -> None:
         val_every=args.val_every,
         max_validation_images=args.max_validation_images,
         checkpoint_history=args.checkpoint_history,
+        manifest_command="legacy-cli",
     )
     train(
         args.train_dir,
@@ -502,6 +637,28 @@ def main() -> None:
         resume_path=args.resume,
         val_dir=args.val_dir,
     )
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.model_config and args.data_config and args.train_config:
+        model_config = load_model_config(args.model_config)
+        data_config = load_data_config(args.data_config)
+        train_config = load_train_config(args.train_config).replace(
+            manifest_command=" ".join(["python", "-m", "epnet.train"])
+        )
+        run_dir = run_training_from_configs(
+            model_config=model_config,
+            data_config=data_config,
+            train_config=train_config,
+            explicit_resume=args.resume,
+        )
+        print(json.dumps({"run_dir": str(run_dir)}, indent=2))
+        return
+
+    _run_legacy_cli(args)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,11 @@
+dataset_type: div2k
+dataset_root: data
+train_hr_dir: data/raw/DIV2K/DIV2K_train_HR
+processed_root: data/processed
+scale: 2
+benchmark_roots:
+  Set5: data/benchmarks/Set5/HR
+  Set14: data/benchmarks/Set14/HR
+  BSD100: data/benchmarks/BSD100/HR
+  Urban100: data/benchmarks/Urban100/HR
+  Manga109: data/benchmarks/Manga109/HR

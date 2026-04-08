@@ -25,9 +25,9 @@ def test_run_experiment_returns_profile_and_eval(tmp_path: Path) -> None:
     eval_dir = create_synthetic_eval_folder(tmp_path / "eval", image_count=2, size=64, seed=11)
     result = run_experiment(
         ExperimentSpec(
-            name="tiny_cpu_smoke",
+            name="edge_tiny_cpu_smoke",
             group="variant",
-            variant="tiny",
+            variant="edge_tiny",
             description="CPU smoke run for experiment pipeline.",
             overrides={},
         ),
@@ -48,10 +48,10 @@ def test_render_markdown_report_includes_summary_sections() -> None:
     markdown = render_markdown_report(
         [
             {
-                "name": "variant_tiny",
+                "name": "variant_edge_tiny",
                 "group": "variant",
-                "variant": "tiny",
-                "description": "Tiny preset.",
+                "variant": "edge_tiny",
+                "description": "Edge tiny preset.",
                 "evaluation": {"average_psnr": 1.0, "average_ssim": 0.1},
                 "profile": {"parameters": 10, "macs": 20, "latency_ms": 3.0},
                 "best_psnr": 1.0,
@@ -60,7 +60,7 @@ def test_render_markdown_report_includes_summary_sections() -> None:
             {
                 "name": "ablation_espm2",
                 "group": "ablation",
-                "variant": "paper",
+                "variant": "paper_like",
                 "description": "Reduced ESPM depth.",
                 "evaluation": {"average_psnr": 0.9, "average_ssim": 0.09},
                 "profile": {"parameters": 12, "macs": 22, "latency_ms": 3.5},

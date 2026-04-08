@@ -54,13 +54,20 @@ Every paper ambiguity is documented in [docs/epnet_assumptions.md](/Users/macboo
 
 ## Project Structure
 
-- `src/epnet`: model, modules, datasets, metrics, profiling, and train/eval/infer CLIs
+- `src/epnet/models`: EPNet model, presets, registry, and block-level modules
+- `src/epnet/data`: synthetic, DIV2K, benchmark, transforms, paired datasets, and data builders
+- `src/epnet/utils`: device, metrics, manifest, seed, and path helpers
+- `src/epnet/train.py`: config-driven training plus legacy-compatible smoke path
+- `src/epnet/evaluate.py`: single-folder and multi-dataset evaluation
+- `src/epnet/ablate.py`: ablation runner
+- `src/epnet/profile.py`: profile reporting
+- `src/epnet/export.py`: ONNX export smoke path
 - `src/epnet_api`: FastAPI app, schemas, services, and analytics database
 - `frontend`: Next.js + TypeScript + Tailwind + Framer Motion + Recharts UI
-- `tests`: backend, model, and training smoke coverage
-- `docs`: assumptions, audit, optimization, and demo documentation
-- `scripts`: local developer helpers
-- `outputs`: generated analytics DB and output artifacts at runtime
+- `configs`: model, data, and train YAMLs
+- `scripts`: dataset setup and local full-training entrypoints
+- `tests`: backend, model, config, export, and training smoke coverage
+- `docs`: assumptions, audit, dataset setup, edge preset notes, and workflow docs
 
 ## Paper-Faithful Scope
 
@@ -95,47 +102,104 @@ npm install
 cd ..
 ```
 
-## Core Commands
+## Synthetic Smoke Path
 
 ```bash
-PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --device auto
-PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --resume checkpoints/epnet_x4.pt --val-dir path/to/benchmark_hr --val-every 1000
-PYTHONPATH=src epnet-train --output checkpoints/epnet_x2_tiny.pt --scale 2 --variant tiny --synthetic-count 256 --device mps
-PYTHONPATH=src .venv/bin/python -m epnet.experiments --output-dir outputs/model_ablation_mps --report-path docs/model_ablation_results.md --json-path docs/model_ablation_results.json --device mps --scale 2 --steps 8 --synthetic-count 128
-PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4_inference.pt --hr-dir path/to/benchmark_hr --device auto
-PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4_inference.pt --input data/samples/demo_input.png --output outputs/demo_output.png --device auto
-PYTHONPATH=src .venv/bin/uvicorn epnet_api.app.main:app --reload
-cd frontend && npm run dev
-./scripts/run_local.sh
+PYTHONPATH=src .venv/bin/python -m epnet.train \
+  --model-config configs/model/edge_default_x2.yaml \
+  --data-config configs/data/synthetic_x2.yaml \
+  --train-config configs/train/smoke.yaml
+
+PYTHONPATH=src .venv/bin/python -m epnet.experiments \
+  --output-dir outputs/model_ablation_mps \
+  --report-path docs/model_ablation_results.md \
+  --json-path docs/model_ablation_results.json \
+  --device mps \
+  --scale 2 \
+  --steps 8 \
+  --synthetic-count 128
 ```
 
-## Training System
+Synthetic training and ablation are now treated as smoke/regression paths. They remain useful for CI-friendly checks and local sanity verification, but they are no longer the mainline training story for this repository.
 
-The training entry point is now designed as a complete local training system rather than a minimal loop.
+## Real-Data Full Training Path
+
+### 1. Download datasets
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/download_real_data.py --data-root data
+```
+
+### 2. Prepare bicubic LR caches
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/prepare_real_data.py --data-root data --scales 2 3 4
+```
+
+### 3. Run full local x4 training
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_local_full_x4.py
+```
+
+### 4. Resume full x4 training
+
+`scripts/run_local_full_x4.py` automatically resumes from `outputs/run_x4_edge_default/latest.pt` when that file already exists.
+
+### 5. Evaluate a checkpoint
+
+```bash
+PYTHONPATH=src .venv/bin/python -m epnet.evaluate \
+  --checkpoint outputs/run_x4_edge_default/inference.pt \
+  --data-config configs/data/div2k_x4.yaml \
+  --output-json outputs/run_x4_edge_default/eval.json \
+  --output-markdown outputs/run_x4_edge_default/eval.md
+```
+
+## Config-Driven Training System
+
+The repository now supports config-driven training:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m epnet.train \
+  --model-config configs/model/edge_default.yaml \
+  --data-config configs/data/div2k_x4.yaml \
+  --train-config configs/train/local_full_x4.yaml
+```
 
 - automatic device selection across `cuda`, `mps`, and `cpu`
 - optional CUDA AMP with safe fallback on MPS/CPU
+- config snapshot saved into each run directory
+- reproducible `manifest.json` with git commit, command, seed, device, dataset paths, and config payload
 - EMA tracking during training
 - resume support with optimizer and scaler restoration
-- optional validation loop with PSNR / SSIM
-- best-checkpoint export
-- rolling step snapshots
+- eval during training through the primary validation directory
+- best checkpoint + latest checkpoint
+- rolling snapshots
 - dedicated inference checkpoint export using EMA weights
+- evaluation and profile report generation after config-driven runs
 
-Generated artifacts:
+Generated run artifacts:
 
-- `your_run.pt`: full training checkpoint with optimizer, EMA, scaler, metadata
-- `your_run_stepXXXX.pt`: rolling snapshots
-- `your_run_best.pt`: best validation checkpoint when validation is enabled
-- `your_run_inference.pt`: lean inference-ready checkpoint for API / CLI use
+- `outputs/<run_name>/manifest.json`
+- `outputs/<run_name>/train_log.jsonl`
+- `outputs/<run_name>/latest.pt`
+- `outputs/<run_name>/best.pt`
+- `outputs/<run_name>/inference.pt`
+- `outputs/<run_name>/eval.json`
+- `outputs/<run_name>/eval.md`
+- `outputs/<run_name>/profile.json`
+- `outputs/<run_name>/profile.md`
+- `outputs/<run_name>/model.onnx`
 
 ### Model Variants
 
-- `tiny`: ~255K params at x4
-- `paper`: ~464K params at x4, closest to the repo's paper-grounded default
-- `balanced`: ~663K params at x4
+- `paper_like`: baseline comparison preset closest to the paper-grounded configuration
+- `edge_tiny`: smallest edge-oriented preset
+- `edge_default`: recommended mainline preset, using PFEM depth `2` and ESPM levels `2`
+- `balanced_quality`: wider preset for local quality-oriented comparisons
 
-Use `--variant tiny|paper|balanced` to switch the starting configuration, then override dimensions manually if needed with `--embed-dim`, `--num-pfem`, and `--num-heads`.
+Legacy aliases `tiny`, `paper`, and `balanced` are still accepted for compatibility, but the repo now uses the new preset names in configs and docs.
 
 ### Variant Comparison And Ablation
 
@@ -149,6 +213,49 @@ The repo now includes a reproducible ablation runner for model-only comparisons.
   - raw metrics in `docs/model_ablation_results.json`
 
 The checked-in report documents one real local MPS run on deterministic synthetic data. Treat it as an engineering comparison, not a paper benchmark.
+
+## Dataset Download And Preparation
+
+- dataset setup guide: [docs/dataset_setup.md](/Users/macbook/Desktop/epnet/docs/dataset_setup.md)
+- real training workflow: [docs/real_training_workflow.md](/Users/macbook/Desktop/epnet/docs/real_training_workflow.md)
+- edge preset notes: [docs/edge_preset_notes.md](/Users/macbook/Desktop/epnet/docs/edge_preset_notes.md)
+
+The download script supports:
+
+- DIV2K train and validation HR
+- Set5 / Set14 / BSD100 / Urban100 via the VDSR benchmark test pack
+
+Manual fallback:
+
+- Manga109 is not auto-downloaded by default; place it manually under `data/benchmarks/Manga109/HR`
+
+## Output Directory Structure
+
+```text
+outputs/
+  run_x4_edge_default/
+    config_snapshot/
+      model.json
+      data.json
+      train.json
+    manifest.json
+    train_log.jsonl
+    latest.pt
+    best.pt
+    inference.pt
+    eval.json
+    eval.md
+    profile.json
+    profile.md
+    model.onnx
+```
+
+## Known Limitations
+
+- The demo checkpoint in `checkpoints/demo_x4.pt` is still a bootstrap artifact, not a full benchmark-trained weight.
+- Synthetic ablation results are engineering comparisons, not paper claims.
+- Manga109 setup is manual unless you already have approved access.
+- ONNX export is exercised as a smoke path and may report unsupported ops depending on the active PyTorch exporter/runtime.
 
 ## One-Command Local Demo
 

@@ -1,22 +1,17 @@
 from __future__ import annotations
 
 import math
-import random
 from pathlib import Path
 
 import numpy as np
 import torch
 from PIL import Image
 
-
-def set_seed(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 
 
-def ensure_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
+def list_images(directory: Path) -> list[Path]:
+    return sorted(path for path in directory.rglob("*") if path.suffix.lower() in IMAGE_EXTENSIONS)
 
 
 def load_image(path: Path) -> Image.Image:
@@ -24,7 +19,7 @@ def load_image(path: Path) -> Image.Image:
 
 
 def save_image(image: Image.Image, path: Path) -> None:
-    ensure_dir(path.parent)
+    path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path)
 
 
@@ -46,3 +41,9 @@ def resize_bicubic(image: Image.Image, size: tuple[int, int]) -> Image.Image:
 
 def make_divisible(value: int, divisor: int) -> int:
     return int(math.ceil(value / divisor) * divisor)
+
+
+def mod_crop(image: Image.Image, scale: int) -> Image.Image:
+    width = image.width - (image.width % scale)
+    height = image.height - (image.height % scale)
+    return image.crop((0, 0, width, height))

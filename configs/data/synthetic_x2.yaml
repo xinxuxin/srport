@@ -1,0 +1,7 @@
+dataset_type: synthetic
+dataset_root: data
+processed_root: data/processed
+scale: 2
+synthetic_count: 128
+synthetic_eval_count: 6
+synthetic_image_size: 96

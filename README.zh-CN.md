@@ -55,13 +55,20 @@
 
 ## 项目结构
 
-- `src/epnet`：模型、模块、数据集、指标、profiling、训练/评估/推理 CLI
+- `src/epnet/models`：EPNet 模型、preset、registry 和 block 级模块
+- `src/epnet/data`：synthetic、DIV2K、benchmark、transform、paired dataset、data builder
+- `src/epnet/utils`：device、metrics、manifest、seed、path 工具
+- `src/epnet/train.py`：config-driven 训练入口，同时保留兼容 smoke 路径
+- `src/epnet/evaluate.py`：单目录和多 benchmark 评估
+- `src/epnet/ablate.py`：ablation 入口
+- `src/epnet/profile.py`：profile 报告
+- `src/epnet/export.py`：ONNX 导出 smoke 路径
 - `src/epnet_api`：FastAPI 后端、schema、服务层、分析数据库
 - `frontend`：Next.js + TypeScript + Tailwind + Framer Motion + Recharts 前端
-- `tests`：模型、后端和训练相关 smoke tests
-- `docs`：假设说明、审计报告、优化报告、演示清单
-- `scripts`：本地运行辅助脚本
-- `outputs`：运行期生成的分析库和图片产物
+- `configs`：模型、数据、训练 YAML 配置
+- `tests`：模型、后端、config、export、训练 smoke 测试
+- `docs`：假设说明、审计、数据集、preset 和 workflow 文档
+- `scripts`：数据准备和本地 full training 入口
 
 ## 与论文一致的实现范围
 
@@ -96,47 +103,97 @@ npm install
 cd ..
 ```
 
-## 核心命令
+## Synthetic Smoke 路径
 
 ```bash
-PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --device auto
-PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --resume checkpoints/epnet_x4.pt --val-dir path/to/benchmark_hr --val-every 1000
-PYTHONPATH=src epnet-train --output checkpoints/epnet_x2_tiny.pt --scale 2 --variant tiny --synthetic-count 256 --device mps
+PYTHONPATH=src .venv/bin/python -m epnet.train \
+  --model-config configs/model/edge_default_x2.yaml \
+  --data-config configs/data/synthetic_x2.yaml \
+  --train-config configs/train/smoke.yaml
+
 PYTHONPATH=src .venv/bin/python -m epnet.experiments --output-dir outputs/model_ablation_mps --report-path docs/model_ablation_results.md --json-path docs/model_ablation_results.json --device mps --scale 2 --steps 8 --synthetic-count 128
-PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4_inference.pt --hr-dir path/to/benchmark_hr --device auto
-PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4_inference.pt --input data/samples/demo_input.png --output outputs/demo_output.png --device auto
-PYTHONPATH=src .venv/bin/uvicorn epnet_api.app.main:app --reload
-cd frontend && npm run dev
-./scripts/run_local.sh
 ```
 
-## 训练系统
+Synthetic 训练和 ablation 现在主要用于 smoke/regression，不再是仓库的主训练路径。
 
-现在的训练入口已经不是最小可运行脚本，而是更完整的本地训练系统：
+## 真实数据 Full Training 路径
+
+### 1. 下载数据集
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/download_real_data.py --data-root data
+```
+
+### 2. 生成 bicubic LR cache
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/prepare_real_data.py --data-root data --scales 2 3 4
+```
+
+### 3. 跑本地 full x4
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_local_full_x4.py
+```
+
+### 4. 恢复 full x4 训练
+
+`scripts/run_local_full_x4.py` 会在 `outputs/run_x4_edge_default/latest.pt` 已存在时自动 resume。
+
+### 5. 评估 checkpoint
+
+```bash
+PYTHONPATH=src .venv/bin/python -m epnet.evaluate \
+  --checkpoint outputs/run_x4_edge_default/inference.pt \
+  --data-config configs/data/div2k_x4.yaml \
+  --output-json outputs/run_x4_edge_default/eval.json \
+  --output-markdown outputs/run_x4_edge_default/eval.md
+```
+
+## Config-Driven 训练系统
+
+仓库现在支持：
+
+```bash
+PYTHONPATH=src .venv/bin/python -m epnet.train \
+  --model-config configs/model/edge_default.yaml \
+  --data-config configs/data/div2k_x4.yaml \
+  --train-config configs/train/local_full_x4.yaml
+```
 
 - 自动选择 `cuda`、`mps`、`cpu`
 - CUDA 上支持可选 AMP，MPS/CPU 自动回退到全精度
+- 每次 run 自动保存 config snapshot
+- 自动生成 `manifest.json`，包含 git commit、命令、seed、device、dataset path、config payload
 - 训练过程中维护 EMA
 - 支持从 checkpoint 恢复 optimizer 和 scaler
-- 支持可选验证集评估 PSNR / SSIM
-- 支持 best checkpoint 导出
+- 支持训练过程中的验证
+- 支持 `best.pt` 和 `latest.pt`
 - 支持滚动 step snapshot
-- 自动导出推理专用的 `*_inference.pt`
+- 自动导出推理专用 checkpoint
+- config-driven run 结束后自动生成 eval/profile 报告
 
 训练产物：
 
-- `your_run.pt`：完整训练 checkpoint，包含 optimizer、EMA、scaler、元数据
-- `your_run_stepXXXX.pt`：阶段性快照
-- `your_run_best.pt`：开启验证时的最佳 checkpoint
-- `your_run_inference.pt`：使用 EMA 权重导出的轻量推理 checkpoint
+- `outputs/<run_name>/manifest.json`
+- `outputs/<run_name>/train_log.jsonl`
+- `outputs/<run_name>/latest.pt`
+- `outputs/<run_name>/best.pt`
+- `outputs/<run_name>/inference.pt`
+- `outputs/<run_name>/eval.json`
+- `outputs/<run_name>/eval.md`
+- `outputs/<run_name>/profile.json`
+- `outputs/<run_name>/profile.md`
+- `outputs/<run_name>/model.onnx`
 
 ### 模型 Variant
 
-- `tiny`：x4 时约 `255K` 参数
-- `paper`：x4 时约 `464K` 参数，最接近当前仓库默认论文配置
-- `balanced`：x4 时约 `663K` 参数
+- `paper_like`：最接近论文风格的 baseline
+- `edge_tiny`：最小的 edge-oriented preset
+- `edge_default`：推荐主 preset，PFEM 深度 `2`、ESPM 层数 `2`
+- `balanced_quality`：更偏质量对比的宽模型 preset
 
-可以通过 `--variant tiny|paper|balanced` 切换，然后再用 `--embed-dim`、`--num-pfem`、`--num-heads` 做手动微调。
+旧别名 `tiny`、`paper`、`balanced` 仍然兼容，但新的配置和文档统一使用新命名。
 
 ### Variant 对比与 Ablation
 
@@ -150,6 +207,49 @@ cd frontend && npm run dev
   - 原始指标 JSON：`docs/model_ablation_results.json`
 
 当前仓库已经附带一组真实本地 MPS 运行结果，但它基于确定性的 synthetic 数据，只适合做工程对比，不应表述为论文 benchmark。
+
+## 数据集下载与准备
+
+- 数据集说明：[docs/dataset_setup.md](/Users/macbook/Desktop/epnet/docs/dataset_setup.md)
+- 真实训练流程：[docs/real_training_workflow.md](/Users/macbook/Desktop/epnet/docs/real_training_workflow.md)
+- Edge preset 说明：[docs/edge_preset_notes.md](/Users/macbook/Desktop/epnet/docs/edge_preset_notes.md)
+
+下载脚本支持：
+
+- DIV2K train / validation HR
+- Set5 / Set14 / BSD100 / Urban100（通过 VDSR benchmark test pack 归一化）
+
+手动 fallback：
+
+- Manga109 默认不自动下载；如果你有合法访问权限，请手动放到 `data/benchmarks/Manga109/HR`
+
+## 输出目录结构
+
+```text
+outputs/
+  run_x4_edge_default/
+    config_snapshot/
+      model.json
+      data.json
+      train.json
+    manifest.json
+    train_log.jsonl
+    latest.pt
+    best.pt
+    inference.pt
+    eval.json
+    eval.md
+    profile.json
+    profile.md
+    model.onnx
+```
+
+## 已知限制
+
+- `checkpoints/demo_x4.pt` 仍然只是 demo bootstrap 权重，不是 benchmark 级完整训练权重。
+- synthetic ablation 结果只适合工程对比，不应当作论文结果。
+- Manga109 默认走手动准备路径。
+- ONNX 导出目前作为 smoke path 验证，具体是否完全兼容取决于 PyTorch 导出器和目标 runtime。
 
 ## 一条命令跑本地 Demo
 
