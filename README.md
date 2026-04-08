@@ -12,8 +12,9 @@ This repository reproduces the paper's EPNet architecture as faithfully as possi
 - Inference CLI with parameter count, estimated MACs/FLOPs, and latency profiling.
 - FastAPI backend with `/health`, `/model/info`, `/super-resolve`, and `/analytics/summary`.
 - SQLite usage analytics for inference requests.
+- Animated Next.js frontend with drag-and-drop upload, result previews, telemetry cards, and charts.
+- Dockerfiles, `docker-compose.yml`, and a one-command local launcher.
 - Explicit reproduction notes in [docs/epnet_assumptions.md](/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md).
-- Next.js frontend and Docker are added in later phases.
 
 ## Project Structure
 
@@ -47,11 +48,40 @@ These work once the Python dependencies are installed:
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install '.[dev]'
+cd frontend && npm install && cd ..
 PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --train-dir path/to/div2k_train_hr
 PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4.pt --hr-dir path/to/benchmark_hr
 PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4.pt --input input.png --output output.png
 PYTHONPATH=src .venv/bin/uvicorn epnet_api.app.main:app --reload
+./scripts/run_local.sh
 ```
+
+## Local Demo
+
+Run the whole stack locally with:
+
+```bash
+./scripts/run_local.sh
+```
+
+This script will:
+
+- create a local virtual environment if needed
+- install backend dependencies
+- install frontend dependencies
+- bootstrap a small synthetic demo checkpoint if `checkpoints/demo_x4.pt` is missing
+- start FastAPI on `http://localhost:8000`
+- start Next.js on `http://localhost:3000`
+
+## Docker
+
+Build and run the demo stack with:
+
+```bash
+docker compose up --build
+```
+
+The frontend will be available on `http://localhost:3000` and the backend on `http://localhost:8000`.
 
 ## Verification So Far
 
@@ -60,6 +90,9 @@ PYTHONPATH=src .venv/bin/uvicorn epnet_api.app.main:app --reload
 - `.venv/bin/ruff check src tests`
 - `PYTHONPATH=src .venv/bin/pytest`
 - `PYTHONPATH=src .venv/bin/mypy src`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run typecheck`
+- `cd frontend && npm run build`
 
 ## Reproduction Notes
 

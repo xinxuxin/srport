@@ -17,6 +17,7 @@ data/generated/
 frontend/.next/
 frontend/node_modules/
 frontend/out/
+*.tsbuildinfo
 *.sqlite3
 *.db
 *.log
