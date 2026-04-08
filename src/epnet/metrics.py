@@ -82,6 +82,8 @@ def evaluate_prediction(
     tgt = target.detach().cpu().clamp(0.0, 1.0).permute(1, 2, 0).numpy() * 255.0
 
     if shave > 0:
+        if pred.shape[0] <= shave * 2 or pred.shape[1] <= shave * 2:
+            raise ValueError("Shave is too large for the provided image size.")
         pred = pred[shave:-shave, shave:-shave]
         tgt = tgt[shave:-shave, shave:-shave]
 

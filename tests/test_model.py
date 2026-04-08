@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
 import torch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,3 +41,16 @@ def test_tiny_variant_is_smaller_than_paper_variant() -> None:
     tiny = EPNet(model_config_from_variant("tiny"))
     paper = EPNet(model_config_from_variant("paper"))
     assert count_parameters(tiny) < count_parameters(paper)
+
+
+def test_invalid_model_config_values_fail_clearly() -> None:
+    with pytest.raises(ValueError, match="upscale"):
+        ModelConfig(upscale=1)
+    with pytest.raises(ValueError, match="num_pfem"):
+        ModelConfig(num_pfem=0)
+    with pytest.raises(ValueError, match="espm_levels"):
+        ModelConfig(espm_levels=1)
+    with pytest.raises(ValueError, match="split_ratio"):
+        ModelConfig(split_ratio=1.2)
+    with pytest.raises(ValueError, match="divisible"):
+        ModelConfig(embed_dim=40, num_heads=3)

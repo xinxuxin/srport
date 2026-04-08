@@ -42,6 +42,28 @@ class ModelConfig:
     share_pfem_weights: bool = False
     variant: str = "paper"
 
+    def __post_init__(self) -> None:
+        if self.upscale not in {2, 3, 4}:
+            raise ValueError("upscale must be one of: 2, 3, 4.")
+        if self.in_channels <= 0:
+            raise ValueError("in_channels must be positive.")
+        if self.embed_dim <= 0:
+            raise ValueError("embed_dim must be positive.")
+        if self.num_pfem <= 0:
+            raise ValueError("num_pfem must be >= 1.")
+        if self.window_size <= 0:
+            raise ValueError("window_size must be positive.")
+        if self.num_heads <= 0:
+            raise ValueError("num_heads must be positive.")
+        if self.embed_dim % self.num_heads != 0:
+            raise ValueError("embed_dim must be divisible by num_heads.")
+        if self.mlp_ratio <= 0:
+            raise ValueError("mlp_ratio must be positive.")
+        if self.espm_levels < 2:
+            raise ValueError("espm_levels must be >= 2.")
+        if not 0.0 < self.split_ratio < 1.0:
+            raise ValueError("split_ratio must be between 0 and 1.")
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -80,6 +102,36 @@ class TrainConfig:
     max_validation_images: int = 8
     save_best: bool = True
     checkpoint_history: int = 2
+
+    def __post_init__(self) -> None:
+        if self.scale not in {2, 3, 4}:
+            raise ValueError("scale must be one of: 2, 3, 4.")
+        if self.patch_size <= 0:
+            raise ValueError("patch_size must be positive.")
+        if self.batch_size <= 0:
+            raise ValueError("batch_size must be positive.")
+        if self.learning_rate <= 0:
+            raise ValueError("learning_rate must be positive.")
+        if not 0.0 <= self.beta1 < 1.0 or not 0.0 <= self.beta2 < 1.0:
+            raise ValueError("Adam betas must be in [0, 1).")
+        if not 0.0 <= self.ema_decay < 1.0:
+            raise ValueError("ema_decay must be in [0, 1).")
+        if self.total_steps <= 0:
+            raise ValueError("total_steps must be positive.")
+        if self.save_every <= 0:
+            raise ValueError("save_every must be positive.")
+        if self.log_every <= 0:
+            raise ValueError("log_every must be positive.")
+        if self.num_workers < 0:
+            raise ValueError("num_workers must be >= 0.")
+        if self.grad_clip_norm < 0:
+            raise ValueError("grad_clip_norm must be >= 0.")
+        if self.val_every < 0:
+            raise ValueError("val_every must be >= 0.")
+        if self.max_validation_images <= 0:
+            raise ValueError("max_validation_images must be positive.")
+        if self.checkpoint_history < 0:
+            raise ValueError("checkpoint_history must be >= 0.")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

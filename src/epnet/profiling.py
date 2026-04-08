@@ -51,6 +51,9 @@ def profile_model(
     warmup: int = 1,
     iters: int = 5,
 ) -> ModelProfile:
+    if warmup < 0 or iters <= 0:
+        raise ValueError("warmup must be >= 0 and iters must be > 0.")
+
     macs: dict[str, int] = {"value": 0}
     hooks: list[torch.utils.hooks.RemovableHandle] = []
 
@@ -79,7 +82,14 @@ def profile_model(
         elif isinstance(module, WindowAttention):
             hooks.append(module.register_forward_hook(attention_hook))
 
-    with torch.no_grad():
+    was_training = model.training
+    model.eval()
+    with torch.inference_mode():
+        # Count MACs/FLOPs from a single representative forward pass.
+        model(input_tensor)
+        macs_per_forward = macs["value"]
+
+        macs["value"] = 0
         for _ in range(warmup):
             model(input_tensor)
 
@@ -90,11 +100,13 @@ def profile_model(
 
     for hook in hooks:
         hook.remove()
+    if was_training:
+        model.train()
 
     parameters = count_parameters(model)
     return ModelProfile(
         parameters=parameters,
-        macs=macs["value"],
-        flops=macs["value"] * 2,
+        macs=macs_per_forward,
+        flops=macs_per_forward * 2,
         latency_ms=latency_ms,
     )

@@ -88,14 +88,17 @@ def load_checkpoint(
     checkpoint_path: Path | str,
     map_location: str | torch.device = "cpu",
 ) -> dict[str, object]:
+    checkpoint_file = Path(checkpoint_path)
+    if not checkpoint_file.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_file}")
     try:
         checkpoint = torch.load(
-            checkpoint_path,
+            checkpoint_file,
             map_location=map_location,
             weights_only=True,
         )
     except TypeError:
-        checkpoint = torch.load(checkpoint_path, map_location=map_location)
+        checkpoint = torch.load(checkpoint_file, map_location=map_location)
 
     if not isinstance(checkpoint, dict):
         raise ValueError("Checkpoint must deserialize to a dictionary.")
