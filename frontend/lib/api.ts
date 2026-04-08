@@ -70,7 +70,14 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(body || `Request failed with ${response.status}`);
+    let detail: string | null = null;
+    try {
+      const parsed = JSON.parse(body) as { detail?: string };
+      detail = parsed.detail ?? null;
+    } catch {
+      detail = null;
+    }
+    throw new Error(detail ?? (body || `Request failed with ${response.status}`));
   }
 
   return (await response.json()) as T;
@@ -82,14 +89,14 @@ export async function fetchModelInfo(): Promise<ModelInfo> {
 }
 
 export async function fetchAnalyticsSummary(): Promise<AnalyticsSummary> {
-  const response = await fetch(`${API_BASE_URL}/analytics/summary`, { cache: "no-store" });
+  const response = await fetch(`${API_BASE_URL}/usage/summary`, { cache: "no-store" });
   return parseResponse<AnalyticsSummary>(response);
 }
 
 export async function superResolve(file: File): Promise<InferenceResponse> {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await fetch(`${API_BASE_URL}/super-resolve`, {
+  const response = await fetch(`${API_BASE_URL}/infer`, {
     method: "POST",
     body: formData
   });

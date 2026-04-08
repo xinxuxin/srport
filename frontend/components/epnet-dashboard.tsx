@@ -28,6 +28,8 @@ const fadeUp = {
   initial: { opacity: 0, y: 18 },
   animate: { opacity: 1, y: 0 }
 };
+const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/bmp"]);
 
 function formatCount(value: number): string {
   if (value >= 1_000_000_000) {
@@ -58,6 +60,15 @@ export function EpnetDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [compareValue, setCompareValue] = useState(50);
+
+  useEffect(() => {
+    return () => {
+      if (inputPreview) {
+        URL.revokeObjectURL(inputPreview);
+      }
+    };
+  }, [inputPreview]);
 
   async function refreshAnalytics() {
     try {
@@ -85,9 +96,23 @@ export function EpnetDashboard() {
   }, []);
 
   async function handleFile(file: File) {
+    if (!ALLOWED_FILE_TYPES.has(file.type)) {
+      setError("Please upload a PNG, JPEG, WEBP, or BMP image.");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError("The uploaded file is too large for the demo limit.");
+      return;
+    }
     setError(null);
     setIsLoading(true);
-    setInputPreview(URL.createObjectURL(file));
+    setCompareValue(50);
+    setInputPreview((previous) => {
+      if (previous) {
+        URL.revokeObjectURL(previous);
+      }
+      return URL.createObjectURL(file);
+    });
     try {
       const payload = await superResolve(file);
       setResult(payload);
@@ -294,12 +319,43 @@ export function EpnetDashboard() {
                 <p className="mono px-2 text-xs uppercase tracking-[0.28em] text-ink/55">Output</p>
                 <div className="mt-3 aspect-square overflow-hidden rounded-[20px] bg-white">
                   {outputPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={outputPreview}
-                      alt="Super-resolved output"
-                      className="h-full w-full object-cover"
-                    />
+                    <div className="relative h-full w-full overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={outputPreview}
+                        alt="Super-resolved output"
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                      {inputPreview ? (
+                        <>
+                          <div
+                            className="absolute inset-y-0 left-0 overflow-hidden"
+                            style={{ width: `${compareValue}%` }}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={inputPreview}
+                              alt="Input comparison layer"
+                              className="absolute inset-0 h-full w-full object-cover"
+                              style={{ width: "100%", minWidth: "100%" }}
+                            />
+                          </div>
+                          <div
+                            className="absolute inset-y-0 w-0.5 bg-white shadow-[0_0_0_1px_rgba(19,32,47,0.15)]"
+                            style={{ left: `${compareValue}%` }}
+                          />
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={compareValue}
+                            onChange={(event) => setCompareValue(Number(event.target.value))}
+                            className="absolute inset-x-4 bottom-4"
+                            aria-label="Compare input and output"
+                          />
+                        </>
+                      ) : null}
+                    </div>
                   ) : (
                     <div className="flex h-full items-center justify-center text-sm text-ink/45">
                       EPNet output will appear here

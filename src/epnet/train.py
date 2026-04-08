@@ -25,6 +25,7 @@ def _cycle(loader: Iterable[tuple[Tensor, Tensor]]) -> Iterator[tuple[Tensor, Te
 def save_checkpoint(
     path: Path,
     model: EPNet,
+    optimizer: Adam,
     ema: ExponentialMovingAverage,
     step: int,
     model_config: ModelConfig,
@@ -37,6 +38,7 @@ def save_checkpoint(
             "model_config": model_config.to_dict(),
             "train_config": train_config.to_dict(),
             "model_state": model.state_dict(),
+            "optimizer_state": optimizer.state_dict(),
             "ema_state": ema.shadow.state_dict(),
         },
         path,
@@ -49,7 +51,14 @@ def train(
     model_config: ModelConfig,
     train_config: TrainConfig,
     synthetic_count: int = 0,
+    resume_path: Path | None = None,
 ) -> Path:
+    if train_config.scale != model_config.upscale:
+        raise ValueError(
+            "TrainConfig.scale "
+            f"({train_config.scale}) must match "
+            f"ModelConfig.upscale ({model_config.upscale})."
+        )
     set_seed(train_config.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = EPNet(model_config).to(device)
@@ -61,6 +70,18 @@ def train(
     )
     criterion: nn.Module = nn.L1Loss()
     ema = ExponentialMovingAverage(model, train_config.ema_decay)
+    start_step = 0
+
+    if resume_path is not None:
+        checkpoint = torch.load(resume_path, map_location=device)
+        model.load_state_dict(checkpoint["model_state"])
+        optimizer_state = checkpoint.get("optimizer_state")
+        if isinstance(optimizer_state, dict):
+            optimizer.load_state_dict(optimizer_state)
+        ema_state = checkpoint.get("ema_state")
+        if isinstance(ema_state, dict):
+            ema.shadow.load_state_dict(ema_state)
+        start_step = int(checkpoint.get("step", 0))
 
     if train_dir is not None:
         dataset: Dataset[tuple[Tensor, Tensor]] = TrainImageFolderDataset(
@@ -69,7 +90,7 @@ def train(
             train_config.scale,
         )
     else:
-        synthetic_size = train_config.patch_size * 2
+        synthetic_size = train_config.patch_size
         dataset = SyntheticPatternDataset(
             count=max(128, synthetic_count or train_config.batch_size * 8),
             hr_size=synthetic_size,
@@ -87,7 +108,7 @@ def train(
     batches = _cycle(loader)
     model.train()
 
-    for step in range(1, train_config.total_steps + 1):
+    for step in range(start_step + 1, train_config.total_steps + 1):
         lr_batch, hr_batch = next(batches)
         lr_batch = lr_batch.to(device)
         hr_batch = hr_batch.to(device)
@@ -103,7 +124,7 @@ def train(
             print(json.dumps({"step": step, "loss": round(float(loss.item()), 6)}))
 
         if step % train_config.save_every == 0 or step == train_config.total_steps:
-            save_checkpoint(output_path, model, ema, step, model_config, train_config)
+            save_checkpoint(output_path, model, optimizer, ema, step, model_config, train_config)
 
     return output_path
 
@@ -126,6 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--embed-dim", type=int, default=40)
     parser.add_argument("--num-pfem", type=int, default=4)
     parser.add_argument("--synthetic-count", type=int, default=0)
+    parser.add_argument("--resume", type=Path, default=None)
     return parser
 
 
@@ -145,6 +167,7 @@ def main() -> None:
         model_config,
         train_config,
         synthetic_count=args.synthetic_count,
+        resume_path=args.resume,
     )
 
 

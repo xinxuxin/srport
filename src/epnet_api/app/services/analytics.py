@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import sqlite3
 from collections import Counter
 from datetime import datetime
 from statistics import mean
 
 from ..db.database import Database
-from ..schemas.api import AnalyticsPoint, AnalyticsSummaryResponse, EventPreview, Resolution
+from ..schemas.api import (
+    AnalyticsPoint,
+    AnalyticsSummaryResponse,
+    EventPreview,
+    RecentEventsResponse,
+    Resolution,
+)
 
 
 class AnalyticsService:
@@ -55,16 +62,7 @@ class AnalyticsService:
             )
 
     def summary(self) -> AnalyticsSummaryResponse:
-        with self.database.connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT request_id, created_at, input_width, input_height,
-                       output_width, output_height, latency_ms, upscale
-                FROM inference_events
-                ORDER BY created_at DESC
-                """
-            ).fetchall()
-
+        rows = self._fetch_rows()
         if not rows:
             return AnalyticsSummaryResponse(
                 total_requests=0,
@@ -81,18 +79,48 @@ class AnalyticsService:
         output_pixels = [int(row["output_width"]) * int(row["output_height"]) for row in rows]
         by_upscale = Counter(int(row["upscale"]) for row in rows)
 
-        latency_series = [
+        return AnalyticsSummaryResponse(
+            total_requests=len(rows),
+            average_latency_ms=mean(latencies),
+            latest_request_at=datetime.fromisoformat(str(rows[0]["created_at"])),
+            average_output_megapixels=mean(output_pixels) / 1_000_000.0,
+            total_processed_pixels=sum(output_pixels),
+            latency_series=self._latency_series(rows),
+            upscale_distribution=[
+                AnalyticsPoint(label=f"x{scale}", value=float(count))
+                for scale, count in sorted(by_upscale.items())
+            ],
+            recent_events=self._recent_events(rows, limit=10),
+        )
+
+    def recent(self, limit: int = 10) -> RecentEventsResponse:
+        return RecentEventsResponse(
+            recent_events=self._recent_events(self._fetch_rows(), limit=limit)
+        )
+
+    def _fetch_rows(self) -> list[sqlite3.Row]:
+        with self.database.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT request_id, created_at, input_width, input_height,
+                       output_width, output_height, latency_ms, upscale
+                FROM inference_events
+                ORDER BY created_at DESC
+                """
+            ).fetchall()
+        return list(rows)
+
+    def _latency_series(self, rows: list[sqlite3.Row]) -> list[AnalyticsPoint]:
+        return [
             AnalyticsPoint(
                 label=datetime.fromisoformat(str(row["created_at"])).strftime("%H:%M:%S"),
                 value=float(row["latency_ms"]),
             )
             for row in reversed(rows[:20])
         ]
-        upscale_distribution = [
-            AnalyticsPoint(label=f"x{scale}", value=float(count))
-            for scale, count in sorted(by_upscale.items())
-        ]
-        recent_events = [
+
+    def _recent_events(self, rows: list[sqlite3.Row], limit: int) -> list[EventPreview]:
+        return [
             EventPreview(
                 request_id=str(row["request_id"]),
                 created_at=datetime.fromisoformat(str(row["created_at"])),
@@ -107,15 +135,5 @@ class AnalyticsService:
                 latency_ms=float(row["latency_ms"]),
                 upscale=int(row["upscale"]),
             )
-            for row in rows[:10]
+            for row in rows[:limit]
         ]
-        return AnalyticsSummaryResponse(
-            total_requests=len(rows),
-            average_latency_ms=mean(latencies),
-            latest_request_at=datetime.fromisoformat(str(rows[0]["created_at"])),
-            average_output_megapixels=mean(output_pixels) / 1_000_000.0,
-            total_processed_pixels=sum(output_pixels),
-            latency_series=latency_series,
-            upscale_distribution=upscale_distribution,
-            recent_events=recent_events,
-        )

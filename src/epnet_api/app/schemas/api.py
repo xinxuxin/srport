@@ -71,3 +71,7 @@ class AnalyticsSummaryResponse(BaseModel):
     latency_series: list[AnalyticsPoint]
     upscale_distribution: list[AnalyticsPoint]
     recent_events: list[EventPreview]
+
+
+class RecentEventsResponse(BaseModel):
+    recent_events: list[EventPreview]

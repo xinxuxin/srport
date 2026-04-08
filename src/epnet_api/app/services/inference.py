@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import base64
 import io
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 import torch
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from epnet import EPNet, ModelConfig
 from epnet.model import load_model_from_checkpoint
@@ -33,6 +34,12 @@ class RuntimeModel:
     checkpoint_loaded: bool
     checkpoint_path: Path | None
     weights_source: str
+
+
+@dataclass(frozen=True)
+class InferenceError(Exception):
+    status_code: int
+    detail: str
 
 
 class InferenceService:
@@ -97,16 +104,16 @@ class InferenceService:
     def super_resolve(self, image_bytes: bytes, image_format: str = "PNG") -> InferenceResponse:
         request_id = str(uuid.uuid4())
         created_at = datetime.now(timezone.utc)
-        input_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        input_image = self._decode_image(image_bytes)
         input_tensor = pil_to_tensor(input_image).unsqueeze(0)
-
-        start_profile = profile_model(self.runtime.model, input_tensor, warmup=0, iters=1)
-        with torch.no_grad():
+        start = time.perf_counter()
+        with torch.inference_mode():
             output_tensor = self.runtime.model(input_tensor)[0]
+        latency_ms = (time.perf_counter() - start) * 1000.0
         output_image = tensor_to_pil(output_tensor)
 
         output_buffer = io.BytesIO()
-        output_image.save(output_buffer, format=image_format)
+        output_image.save(output_buffer, format=self._normalize_output_format(image_format))
         output_bytes = output_buffer.getvalue()
         base64_image = base64.b64encode(output_bytes).decode("utf-8")
 
@@ -117,7 +124,7 @@ class InferenceService:
             output_image_base64=base64_image,
             model=model_info,
             runtime=RuntimeInfo(
-                latency_ms=start_profile.latency_ms,
+                latency_ms=latency_ms,
                 parameter_count=model_info.parameter_count,
                 estimated_macs=model_info.estimated_macs,
                 estimated_flops=model_info.estimated_flops,
@@ -149,3 +156,31 @@ class InferenceService:
             estimated_flops=model_info.estimated_flops,
         )
         return response
+
+    def _decode_image(self, image_bytes: bytes) -> Image.Image:
+        try:
+            image = Image.open(io.BytesIO(image_bytes))
+            image.load()
+        except (UnidentifiedImageError, OSError) as error:
+            raise InferenceError(
+                status_code=400,
+                detail="Uploaded file is not a valid image.",
+            ) from error
+
+        if image.width * image.height > self.settings.max_image_pixels:
+            raise InferenceError(
+                status_code=413,
+                detail=(
+                    f"Image is too large. Limit is {self.settings.max_image_pixels} total pixels."
+                ),
+            )
+
+        return image.convert("RGB")
+
+    def _normalize_output_format(self, image_format: str) -> str:
+        normalized = image_format.upper()
+        if normalized == "JPG":
+            return "JPEG"
+        if normalized in {"PNG", "JPEG", "WEBP", "BMP"}:
+            return normalized
+        return "PNG"

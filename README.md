@@ -10,11 +10,12 @@ This repository reproduces the paper's EPNet architecture as faithfully as possi
 - Paper defaults captured in configuration and training CLI.
 - Evaluation pipeline with PSNR and SSIM.
 - Inference CLI with parameter count, estimated MACs/FLOPs, and latency profiling.
-- FastAPI backend with `/health`, `/model/info`, `/super-resolve`, and `/analytics/summary`.
+- FastAPI backend with `/health`, `/model/info`, `/infer`, `/super-resolve`, `/usage/summary`, `/usage/recent`, and `/analytics/summary`.
 - SQLite usage analytics for inference requests.
 - Animated Next.js frontend with drag-and-drop upload, result previews, telemetry cards, and charts.
 - Dockerfiles, `docker-compose.yml`, and a one-command local launcher.
 - Explicit reproduction notes in [docs/epnet_assumptions.md](/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md).
+- Audit artifacts in [final_audit_report.md](/Users/macbook/Desktop/epnet/docs/final_audit_report.md), [optimization_report.md](/Users/macbook/Desktop/epnet/docs/optimization_report.md), and [demo_checklist.md](/Users/macbook/Desktop/epnet/docs/demo_checklist.md).
 
 ## Project Structure
 
@@ -50,6 +51,7 @@ python3 -m venv .venv
 .venv/bin/pip install '.[dev]'
 cd frontend && npm install && cd ..
 PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --train-dir path/to/div2k_train_hr
+PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --train-dir path/to/div2k_train_hr --resume checkpoints/epnet_x4.pt
 PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4.pt --hr-dir path/to/benchmark_hr
 PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4.pt --input input.png --output output.png
 PYTHONPATH=src .venv/bin/uvicorn epnet_api.app.main:app --reload
@@ -73,6 +75,29 @@ This script will:
 - start FastAPI on `http://localhost:8000`
 - start Next.js on `http://localhost:3000`
 
+## API Notes
+
+Primary endpoints:
+
+- `GET /api/v1/health`
+- `GET /api/v1/model/info`
+- `POST /api/v1/infer`
+- `GET /api/v1/usage/summary`
+- `GET /api/v1/usage/recent`
+
+Backward-compatible aliases are also available at `POST /api/v1/super-resolve` and `GET /api/v1/analytics/summary`.
+
+Upload guardrails:
+
+- allowed formats: PNG, JPEG, WEBP, BMP
+- max upload size: `12 MB` by default
+- max decoded image size: `16,000,000` pixels by default
+
+These limits can be changed with:
+
+- `EPNET_MAX_UPLOAD_BYTES`
+- `EPNET_MAX_IMAGE_PIXELS`
+
 ## Docker
 
 Build and run the demo stack with:
@@ -93,6 +118,7 @@ The frontend will be available on `http://localhost:3000` and the backend on `ht
 - `cd frontend && npm run lint`
 - `cd frontend && npm run typecheck`
 - `cd frontend && npm run build`
+- `docker compose config`
 
 ## Reproduction Notes
 

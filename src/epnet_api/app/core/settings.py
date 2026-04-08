@@ -15,6 +15,8 @@ class Settings:
     api_prefix: str = "/api/v1"
     checkpoint_path: Path = _repo_root() / "checkpoints" / "demo_x4.pt"
     analytics_db_path: Path = _repo_root() / "outputs" / "usage_analytics.sqlite3"
+    max_upload_bytes: int = 12 * 1024 * 1024
+    max_image_pixels: int = 16_000_000
     cors_origins: list[str] = field(
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
     )
@@ -41,10 +43,14 @@ class Settings:
                 str(_repo_root() / "outputs" / "usage_analytics.sqlite3"),
             )
         )
+        max_upload_bytes = int(os.getenv("EPNET_MAX_UPLOAD_BYTES", str(12 * 1024 * 1024)))
+        max_image_pixels = int(os.getenv("EPNET_MAX_IMAGE_PIXELS", "16000000"))
         profile_size = int(os.getenv("EPNET_PROFILE_INPUT_SIZE", "64"))
         return Settings(
             checkpoint_path=checkpoint,
             analytics_db_path=database,
+            max_upload_bytes=max_upload_bytes,
+            max_image_pixels=max_image_pixels,
             cors_origins=origins,
             profile_input_size=profile_size,
         )
