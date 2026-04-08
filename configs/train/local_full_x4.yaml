@@ -2,14 +2,14 @@ scale: 4
 patch_size: 48
 batch_size: 4
 total_steps: 100000
-save_every: 1000
-log_every: 50
+save_every: 100
+log_every: 25
 num_workers: 2
 seed: 42
 device: auto
 amp: "auto"
 channels_last: true
-val_every: 1000
+val_every: 100
 max_validation_images: 8
 checkpoint_history: 2
 run_name: run_x4_edge_default

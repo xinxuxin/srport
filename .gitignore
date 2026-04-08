@@ -13,6 +13,9 @@ build/
 outputs/
 checkpoints/*.pt
 !checkpoints/.gitkeep
+data/raw/
+data/benchmarks/
+data/benchmarks_download/
 data/generated/
 data/processed/
 frontend/.next/
