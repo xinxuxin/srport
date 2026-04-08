@@ -16,7 +16,7 @@ from epnet.config import ModelConfig, TrainConfig, model_config_from_variant  # 
 from epnet.device import build_device_context  # noqa: E402
 from epnet.metrics import evaluate_prediction  # noqa: E402
 from epnet.model import load_checkpoint, load_model_from_checkpoint  # noqa: E402
-from epnet.train import train, validate  # noqa: E402
+from epnet.train import _retain_checkpoint_history, train, validate  # noqa: E402
 from epnet.utils import pil_to_tensor  # noqa: E402
 
 
@@ -141,3 +141,11 @@ def test_missing_checkpoint_path_fails_clearly(tmp_path: Path) -> None:
     missing = tmp_path / "missing.pt"
     with pytest.raises(FileNotFoundError, match="Checkpoint not found"):
         load_checkpoint(missing)
+
+
+def test_checkpoint_history_retains_latest_numeric_steps(tmp_path: Path) -> None:
+    for step in (800, 900, 1000):
+        (tmp_path / f"step{step}.pt").write_text(str(step), encoding="utf-8")
+    _retain_checkpoint_history(tmp_path / "latest.pt", keep=2)
+    remaining = sorted(path.name for path in tmp_path.glob("step*.pt"))
+    assert remaining == ["step1000.pt", "step900.pt"]

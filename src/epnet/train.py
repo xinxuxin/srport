@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from statistics import mean
@@ -181,11 +182,17 @@ def _retain_checkpoint_history(output_path: Path, keep: int) -> None:
     if keep <= 0:
         return
     if output_path.stem == "latest":
-        history = sorted(output_path.parent.glob(f"step*{output_path.suffix}"))
+        history = list(output_path.parent.glob(f"step*{output_path.suffix}"))
     else:
-        history = sorted(output_path.parent.glob(f"{output_path.stem}_step*{output_path.suffix}"))
+        history = list(output_path.parent.glob(f"{output_path.stem}_step*{output_path.suffix}"))
+    history.sort(key=_checkpoint_step_sort_key)
     for path in history[:-keep]:
         path.unlink(missing_ok=True)
+
+
+def _checkpoint_step_sort_key(path: Path) -> int:
+    match = re.search(r"step(\d+)", path.stem)
+    return int(match.group(1)) if match else -1
 
 
 def validate(
