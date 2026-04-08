@@ -36,6 +36,7 @@
 
 - EPNet 主体模型已实现。
 - 论文中的主要训练默认值已经体现在配置和 CLI 中。
+- 训练 CLI 现在支持 `cpu`、`cuda`、`mps`，并会额外导出可直接推理的 EMA checkpoint。
 - 评估流程支持 PSNR / SSIM。
 - 后端支持健康检查、模型信息、单图推理、批量推理、统计汇总、最近请求和历史回放。
 - 结果图通过 URL 返回，不再走内联 base64。
@@ -98,14 +99,43 @@ cd ..
 ## 核心命令
 
 ```bash
-PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --train-dir path/to/div2k_train_hr
-PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --train-dir path/to/div2k_train_hr --resume checkpoints/epnet_x4.pt
-PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4.pt --hr-dir path/to/benchmark_hr
-PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4.pt --input data/samples/demo_input.png --output outputs/demo_output.png
+PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --device auto
+PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --resume checkpoints/epnet_x4.pt --val-dir path/to/benchmark_hr --val-every 1000
+PYTHONPATH=src epnet-train --output checkpoints/epnet_x2_tiny.pt --scale 2 --variant tiny --synthetic-count 256 --device mps
+PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4_inference.pt --hr-dir path/to/benchmark_hr --device auto
+PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4_inference.pt --input data/samples/demo_input.png --output outputs/demo_output.png --device auto
 PYTHONPATH=src .venv/bin/uvicorn epnet_api.app.main:app --reload
 cd frontend && npm run dev
 ./scripts/run_local.sh
 ```
+
+## 训练系统
+
+现在的训练入口已经不是最小可运行脚本，而是更完整的本地训练系统：
+
+- 自动选择 `cuda`、`mps`、`cpu`
+- CUDA 上支持可选 AMP，MPS/CPU 自动回退到全精度
+- 训练过程中维护 EMA
+- 支持从 checkpoint 恢复 optimizer 和 scaler
+- 支持可选验证集评估 PSNR / SSIM
+- 支持 best checkpoint 导出
+- 支持滚动 step snapshot
+- 自动导出推理专用的 `*_inference.pt`
+
+训练产物：
+
+- `your_run.pt`：完整训练 checkpoint，包含 optimizer、EMA、scaler、元数据
+- `your_run_stepXXXX.pt`：阶段性快照
+- `your_run_best.pt`：开启验证时的最佳 checkpoint
+- `your_run_inference.pt`：使用 EMA 权重导出的轻量推理 checkpoint
+
+### 模型 Variant
+
+- `tiny`：x4 时约 `255K` 参数
+- `paper`：x4 时约 `464K` 参数，最接近当前仓库默认论文配置
+- `balanced`：x4 时约 `663K` 参数
+
+可以通过 `--variant tiny|paper|balanced` 切换，然后再用 `--embed-dim`、`--num-pfem`、`--num-heads` 做手动微调。
 
 ## 一条命令跑本地 Demo
 

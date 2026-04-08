@@ -38,6 +38,7 @@ The current demo is designed to feel like a solution engineering artifact rather
 
 - Core EPNet model implemented in PyTorch.
 - Paper defaults captured in configuration and training CLI.
+- Training CLI now supports `cpu`, `cuda`, and `mps`, plus inference-ready EMA checkpoint export.
 - Evaluation pipeline reports PSNR and SSIM.
 - FastAPI exposes health, model info, single inference, batch inference, usage summary, recent events, and replay history.
 - Output artifacts are returned by URL rather than inline base64 payloads.
@@ -97,14 +98,43 @@ cd ..
 ## Core Commands
 
 ```bash
-PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --train-dir path/to/div2k_train_hr
-PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --train-dir path/to/div2k_train_hr --resume checkpoints/epnet_x4.pt
-PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4.pt --hr-dir path/to/benchmark_hr
-PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4.pt --input data/samples/demo_input.png --output outputs/demo_output.png
+PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --device auto
+PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --resume checkpoints/epnet_x4.pt --val-dir path/to/benchmark_hr --val-every 1000
+PYTHONPATH=src epnet-train --output checkpoints/epnet_x2_tiny.pt --scale 2 --variant tiny --synthetic-count 256 --device mps
+PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4_inference.pt --hr-dir path/to/benchmark_hr --device auto
+PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4_inference.pt --input data/samples/demo_input.png --output outputs/demo_output.png --device auto
 PYTHONPATH=src .venv/bin/uvicorn epnet_api.app.main:app --reload
 cd frontend && npm run dev
 ./scripts/run_local.sh
 ```
+
+## Training System
+
+The training entry point is now designed as a complete local training system rather than a minimal loop.
+
+- automatic device selection across `cuda`, `mps`, and `cpu`
+- optional CUDA AMP with safe fallback on MPS/CPU
+- EMA tracking during training
+- resume support with optimizer and scaler restoration
+- optional validation loop with PSNR / SSIM
+- best-checkpoint export
+- rolling step snapshots
+- dedicated inference checkpoint export using EMA weights
+
+Generated artifacts:
+
+- `your_run.pt`: full training checkpoint with optimizer, EMA, scaler, metadata
+- `your_run_stepXXXX.pt`: rolling snapshots
+- `your_run_best.pt`: best validation checkpoint when validation is enabled
+- `your_run_inference.pt`: lean inference-ready checkpoint for API / CLI use
+
+### Model Variants
+
+- `tiny`: ~255K params at x4
+- `paper`: ~464K params at x4, closest to the repo's paper-grounded default
+- `balanced`: ~663K params at x4
+
+Use `--variant tiny|paper|balanced` to switch the starting configuration, then override dimensions manually if needed with `--embed-dim`, `--num-pfem`, and `--num-heads`.
 
 ## One-Command Local Demo
 

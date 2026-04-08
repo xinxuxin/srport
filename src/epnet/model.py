@@ -19,14 +19,15 @@ class EPNet(nn.Module):
             kernel_size=3,
             padding=1,
         )
+        self.shared_pfem_block: PFEMSubmodule | None = None
         if self.config.share_pfem_weights:
-            shared = PFEMSubmodule(
+            self.shared_pfem_block = PFEMSubmodule(
                 self.config.embed_dim,
                 self.config.num_heads,
                 self.config.window_size,
                 self.config.mlp_ratio,
             )
-            self.pfem_blocks = nn.ModuleList(shared for _ in range(self.config.num_pfem))
+            self.pfem_blocks = nn.ModuleList()
         else:
             self.pfem_blocks = nn.ModuleList(
                 PFEMSubmodule(
@@ -55,8 +56,12 @@ class EPNet(nn.Module):
     def forward_features(self, x: Tensor) -> tuple[Tensor, Tensor]:
         base = self.shallow(x)
         pfem = base
-        for block in self.pfem_blocks:
-            pfem = block(pfem)
+        if self.shared_pfem_block is not None:
+            for _ in range(self.config.num_pfem):
+                pfem = self.shared_pfem_block(pfem)
+        else:
+            for block in self.pfem_blocks:
+                pfem = block(pfem)
         espm = self.espm(base)
         return pfem, espm
 

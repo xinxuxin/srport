@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from epnet import EPNet  # noqa: E402
-from epnet.config import ModelConfig  # noqa: E402
+from epnet.config import ModelConfig, model_config_from_variant  # noqa: E402
 from epnet.profiling import count_parameters  # noqa: E402
 
 
@@ -34,3 +34,9 @@ def test_epnet_supports_x2_x3_and_x4_shapes_without_nans() -> None:
             output = model(input_tensor)
         assert output.shape == (1, 3, 13 * scale, 17 * scale)
         assert not torch.isnan(output).any()
+
+
+def test_tiny_variant_is_smaller_than_paper_variant() -> None:
+    tiny = EPNet(model_config_from_variant("tiny"))
+    paper = EPNet(model_config_from_variant("paper"))
+    assert count_parameters(tiny) < count_parameters(paper)

@@ -13,6 +13,7 @@
 
 - The paper does not publish source code or enough tensor-level detail to uniquely recover the exact module wiring, channel sizes, or Swin hyperparameters. This implementation therefore uses a faithful approximation of the published diagrams and text.
 - The default embedding dimension is set to `40` to keep the model close to the paper's reported `~485K` parameter regime while preserving a simple, readable implementation. This can be changed through configuration.
+- To make the project easier to demonstrate on different hardware budgets, the training CLI now exposes `tiny`, `paper`, and `balanced` EPNet presets. Only `paper` is treated as the default paper-grounded configuration; the other presets are engineering variants for parameter-efficiency tradeoff studies.
 - PFEM submodules are not weight-shared by default. The paper text is ambiguous on the phrase "parameter-sharing LFEB and ESAB", so weight sharing is exposed as a configuration option instead of being forced.
 - The modified Swin Transformer is implemented as two windowed self-attention blocks with alternating shifted windows, preserving the Swin-style local-global trade-off without introducing hierarchical patch merging.
 - LFEB is implemented as `Conv3x3 -> GELU -> Conv3x3 -> ECAM + residual`, based on Figure 3 and the ECANet reference cited in the paper.
@@ -25,5 +26,7 @@
 ## Optional Improvements
 
 - A small bootstrap checkpoint can be trained on synthetic patterns for a working local demo before a full DIV2K run is available. This is a demo convenience and is not presented as a paper-level reproduction result.
+- Training now exports a companion `*_inference.pt` checkpoint that stores EMA-smoothed weights in an inference-ready layout, so demo and deployment entry points do not need optimizer state.
+- The training runtime supports `cpu`, `cuda`, and `mps`. CUDA gets optional AMP and TF32 acceleration; MPS and CPU fall back to full-precision execution for compatibility.
 - The FastAPI service records usage analytics in SQLite and exposes dashboard-ready summary endpoints. This is outside the scope of the paper and exists purely for the product demo.
 - The web frontend emphasizes polished interaction, observability, and reproducibility rather than matching any paper figure.
