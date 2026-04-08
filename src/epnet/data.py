@@ -16,6 +16,36 @@ def list_images(directory: Path) -> list[Path]:
     return sorted(path for path in directory.rglob("*") if path.suffix.lower() in IMAGE_EXTENSIONS)
 
 
+def synthetic_pattern_image(size: int, seed: int) -> Image.Image:
+    generator = random.Random(seed)
+    image = Image.new(
+        "RGB",
+        (size, size),
+        color=tuple(generator.randint(0, 255) for _ in range(3)),
+    )
+    draw = ImageDraw.Draw(image)
+    for _ in range(16):
+        color = tuple(generator.randint(0, 255) for _ in range(3))
+        x0 = generator.randint(0, size - 8)
+        y0 = generator.randint(0, size - 8)
+        x1 = generator.randint(x0 + 4, size)
+        y1 = generator.randint(y0 + 4, size)
+        if generator.random() < 0.5:
+            draw.rectangle((x0, y0, x1, y1), outline=color, width=2)
+        else:
+            draw.ellipse((x0, y0, x1, y1), outline=color, width=2)
+
+    for _ in range(12):
+        x0 = generator.randint(0, size - 1)
+        y0 = generator.randint(0, size - 1)
+        x1 = generator.randint(0, size - 1)
+        y1 = generator.randint(0, size - 1)
+        color = tuple(generator.randint(0, 255) for _ in range(3))
+        draw.line((x0, y0, x1, y1), fill=color, width=generator.randint(1, 3))
+
+    return image.filter(ImageFilter.SHARPEN)
+
+
 class TrainImageFolderDataset(Dataset[tuple[Tensor, Tensor]]):
     def __init__(
         self,
@@ -86,32 +116,6 @@ class SyntheticPatternDataset(Dataset[tuple[Tensor, Tensor]]):
         return self.count
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
-        generator = random.Random(self.seed + index)
-        image = Image.new(
-            "RGB",
-            (self.hr_size, self.hr_size),
-            color=tuple(generator.randint(0, 255) for _ in range(3)),
-        )
-        draw = ImageDraw.Draw(image)
-        for _ in range(16):
-            color = tuple(generator.randint(0, 255) for _ in range(3))
-            x0 = generator.randint(0, self.hr_size - 8)
-            y0 = generator.randint(0, self.hr_size - 8)
-            x1 = generator.randint(x0 + 4, self.hr_size)
-            y1 = generator.randint(y0 + 4, self.hr_size)
-            if generator.random() < 0.5:
-                draw.rectangle((x0, y0, x1, y1), outline=color, width=2)
-            else:
-                draw.ellipse((x0, y0, x1, y1), outline=color, width=2)
-
-        for _ in range(12):
-            x0 = generator.randint(0, self.hr_size - 1)
-            y0 = generator.randint(0, self.hr_size - 1)
-            x1 = generator.randint(0, self.hr_size - 1)
-            y1 = generator.randint(0, self.hr_size - 1)
-            color = tuple(generator.randint(0, 255) for _ in range(3))
-            draw.line((x0, y0, x1, y1), fill=color, width=generator.randint(1, 3))
-
-        image = image.filter(ImageFilter.SHARPEN)
+        image = synthetic_pattern_image(self.hr_size, self.seed + index)
         lr = resize_bicubic(image, (self.hr_size // self.scale, self.hr_size // self.scale))
         return pil_to_tensor(lr), pil_to_tensor(image)

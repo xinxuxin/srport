@@ -74,6 +74,19 @@ train(
 PY
 ```
 
+## MPS Variant Comparison And Ablation
+
+```bash
+PYTHONPATH=src .venv/bin/python -m epnet.experiments \
+  --output-dir outputs/model_ablation_mps \
+  --report-path docs/model_ablation_results.md \
+  --json-path docs/model_ablation_results.json \
+  --device mps \
+  --scale 2 \
+  --steps 8 \
+  --synthetic-count 128
+```
+
 ## Inference Checkpoint Smoke
 
 ```bash

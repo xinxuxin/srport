@@ -101,6 +101,7 @@ cd ..
 PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --device auto
 PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --resume checkpoints/epnet_x4.pt --val-dir path/to/benchmark_hr --val-every 1000
 PYTHONPATH=src epnet-train --output checkpoints/epnet_x2_tiny.pt --scale 2 --variant tiny --synthetic-count 256 --device mps
+PYTHONPATH=src .venv/bin/python -m epnet.experiments --output-dir outputs/model_ablation_mps --report-path docs/model_ablation_results.md --json-path docs/model_ablation_results.json --device mps --scale 2 --steps 8 --synthetic-count 128
 PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4_inference.pt --hr-dir path/to/benchmark_hr --device auto
 PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4_inference.pt --input data/samples/demo_input.png --output outputs/demo_output.png --device auto
 PYTHONPATH=src .venv/bin/uvicorn epnet_api.app.main:app --reload
@@ -135,6 +136,19 @@ Generated artifacts:
 - `balanced`: ~663K params at x4
 
 Use `--variant tiny|paper|balanced` to switch the starting configuration, then override dimensions manually if needed with `--embed-dim`, `--num-pfem`, and `--num-heads`.
+
+### Variant Comparison And Ablation
+
+The repo now includes a reproducible ablation runner for model-only comparisons.
+
+- command entry: `python -m epnet.experiments`
+- default suite: `tiny`, `paper`, `balanced`, plus `paper` ablations for PFEM depth, shared PFEM weights, and ESPM depth
+- outputs:
+  - raw checkpoints in `outputs/model_ablation_mps/`
+  - markdown summary in `docs/model_ablation_results.md`
+  - raw metrics in `docs/model_ablation_results.json`
+
+The checked-in report documents one real local MPS run on deterministic synthetic data. Treat it as an engineering comparison, not a paper benchmark.
 
 ## One-Command Local Demo
 

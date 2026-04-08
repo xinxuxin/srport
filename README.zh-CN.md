@@ -102,6 +102,7 @@ cd ..
 PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --device auto
 PYTHONPATH=src epnet-train --output checkpoints/epnet_x4.pt --scale 4 --variant paper --train-dir path/to/div2k_train_hr --resume checkpoints/epnet_x4.pt --val-dir path/to/benchmark_hr --val-every 1000
 PYTHONPATH=src epnet-train --output checkpoints/epnet_x2_tiny.pt --scale 2 --variant tiny --synthetic-count 256 --device mps
+PYTHONPATH=src .venv/bin/python -m epnet.experiments --output-dir outputs/model_ablation_mps --report-path docs/model_ablation_results.md --json-path docs/model_ablation_results.json --device mps --scale 2 --steps 8 --synthetic-count 128
 PYTHONPATH=src epnet-eval --checkpoint checkpoints/epnet_x4_inference.pt --hr-dir path/to/benchmark_hr --device auto
 PYTHONPATH=src epnet-infer --checkpoint checkpoints/epnet_x4_inference.pt --input data/samples/demo_input.png --output outputs/demo_output.png --device auto
 PYTHONPATH=src .venv/bin/uvicorn epnet_api.app.main:app --reload
@@ -136,6 +137,19 @@ cd frontend && npm run dev
 - `balanced`：x4 时约 `663K` 参数
 
 可以通过 `--variant tiny|paper|balanced` 切换，然后再用 `--embed-dim`、`--num-pfem`、`--num-heads` 做手动微调。
+
+### Variant 对比与 Ablation
+
+现在仓库里已经有一个可复现的模型侧 ablation 运行器。
+
+- 命令入口：`python -m epnet.experiments`
+- 默认实验组：`tiny`、`paper`、`balanced`，以及围绕 `paper` 的 PFEM 深度、PFEM 权重共享、ESPM 深度消融
+- 产物：
+  - 原始 checkpoint：`outputs/model_ablation_mps/`
+  - Markdown 汇总：`docs/model_ablation_results.md`
+  - 原始指标 JSON：`docs/model_ablation_results.json`
+
+当前仓库已经附带一组真实本地 MPS 运行结果，但它基于确定性的 synthetic 数据，只适合做工程对比，不应表述为论文 benchmark。
 
 ## 一条命令跑本地 Demo
 

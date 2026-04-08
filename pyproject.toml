@@ -30,6 +30,7 @@ dev = [
 epnet-train = "epnet.train:main"
 epnet-eval = "epnet.evaluate:main"
 epnet-infer = "epnet.infer:main"
+epnet-ablate = "epnet.experiments:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -1,0 +1,653 @@
+{
+  "device": "mps",
+  "scale": 2,
+  "steps": 8,
+  "synthetic_count": 128,
+  "evaluation_dir": "outputs/model_ablation_mps/synthetic_eval",
+  "experiments": [
+    {
+      "name": "variant_tiny",
+      "group": "variant",
+      "variant": "tiny",
+      "description": "Tiny preset for minimum parameter budget.",
+      "overrides": {}
+    },
+    {
+      "name": "variant_paper",
+      "group": "variant",
+      "variant": "paper",
+      "description": "Paper-grounded default preset.",
+      "overrides": {}
+    },
+    {
+      "name": "variant_balanced",
+      "group": "variant",
+      "variant": "balanced",
+      "description": "Slightly wider model for capacity/performance tradeoff.",
+      "overrides": {}
+    },
+    {
+      "name": "ablation_pfem2",
+      "group": "ablation",
+      "variant": "paper",
+      "description": "Reduce PFEM depth from n=4 to n=2.",
+      "overrides": {
+        "num_pfem": 2
+      }
+    },
+    {
+      "name": "ablation_shared_pfem",
+      "group": "ablation",
+      "variant": "paper",
+      "description": "Share PFEM block weights across repeated applications.",
+      "overrides": {
+        "share_pfem_weights": true
+      }
+    },
+    {
+      "name": "ablation_espm2",
+      "group": "ablation",
+      "variant": "paper",
+      "description": "Reduce ESPM pyramid depth from 3 to 2.",
+      "overrides": {
+        "espm_levels": 2
+      }
+    }
+  ],
+  "results": [
+    {
+      "name": "variant_tiny",
+      "group": "variant",
+      "variant": "tiny",
+      "description": "Tiny preset for minimum parameter budget.",
+      "model_config": {
+        "upscale": 2,
+        "in_channels": 3,
+        "embed_dim": 32,
+        "num_pfem": 3,
+        "window_size": 8,
+        "num_heads": 4,
+        "mlp_ratio": 2.0,
+        "espm_levels": 3,
+        "split_ratio": 0.5,
+        "share_pfem_weights": false,
+        "variant": "tiny"
+      },
+      "train_config": {
+        "scale": 2,
+        "patch_size": 48,
+        "batch_size": 2,
+        "learning_rate": 0.0005,
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "weight_decay": 0.0,
+        "ema_decay": 0.999,
+        "total_steps": 8,
+        "save_every": 8,
+        "log_every": 1,
+        "num_workers": 0,
+        "seed": 42,
+        "device": "mps",
+        "amp": "off",
+        "grad_clip_norm": 0.0,
+        "channels_last": true,
+        "compile_model": false,
+        "val_every": 4,
+        "max_validation_images": 6,
+        "save_best": true,
+        "checkpoint_history": 1
+      },
+      "train_wall_time_s": 3.8092,
+      "final_checkpoint": "outputs/model_ablation_mps/variant_tiny.pt",
+      "inference_checkpoint": "outputs/model_ablation_mps/variant_tiny_inference.pt",
+      "best_psnr": 8.826982138003213,
+      "latest_loss": 0.3642227053642273,
+      "training_validation": {
+        "psnr": 8.826982138003213,
+        "ssim": 0.04956329707056284,
+        "samples": 6.0
+      },
+      "evaluation": {
+        "checkpoint": "outputs/model_ablation_mps/variant_tiny_inference.pt",
+        "device": "mps",
+        "samples": 6,
+        "average_psnr": 8.826982138003213,
+        "average_ssim": 0.04956329707056284,
+        "per_image": [
+          {
+            "name": "eval_00.png",
+            "psnr": 11.340538555883974,
+            "ssim": 0.07081671059131622
+          },
+          {
+            "name": "eval_01.png",
+            "psnr": 6.233046087083094,
+            "ssim": 0.03254804387688637
+          },
+          {
+            "name": "eval_02.png",
+            "psnr": 6.104722883911227,
+            "ssim": 0.023754512891173363
+          },
+          {
+            "name": "eval_03.png",
+            "psnr": 9.202531043835872,
+            "ssim": 0.052200425416231155
+          },
+          {
+            "name": "eval_04.png",
+            "psnr": 9.310744640139928,
+            "ssim": 0.06387276947498322
+          },
+          {
+            "name": "eval_05.png",
+            "psnr": 10.770309617165186,
+            "ssim": 0.05418732017278671
+          }
+        ]
+      },
+      "profile": {
+        "device": "mps",
+        "parameters": 245053,
+        "macs": 493366784,
+        "flops": 986733568,
+        "latency_ms": 9.9336
+      }
+    },
+    {
+      "name": "variant_paper",
+      "group": "variant",
+      "variant": "paper",
+      "description": "Paper-grounded default preset.",
+      "model_config": {
+        "upscale": 2,
+        "in_channels": 3,
+        "embed_dim": 40,
+        "num_pfem": 4,
+        "window_size": 8,
+        "num_heads": 4,
+        "mlp_ratio": 2.0,
+        "espm_levels": 3,
+        "split_ratio": 0.5,
+        "share_pfem_weights": false,
+        "variant": "paper"
+      },
+      "train_config": {
+        "scale": 2,
+        "patch_size": 48,
+        "batch_size": 2,
+        "learning_rate": 0.0005,
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "weight_decay": 0.0,
+        "ema_decay": 0.999,
+        "total_steps": 8,
+        "save_every": 8,
+        "log_every": 1,
+        "num_workers": 0,
+        "seed": 42,
+        "device": "mps",
+        "amp": "off",
+        "grad_clip_norm": 0.0,
+        "channels_last": true,
+        "compile_model": false,
+        "val_every": 4,
+        "max_validation_images": 6,
+        "save_best": true,
+        "checkpoint_history": 1
+      },
+      "train_wall_time_s": 7.2003,
+      "final_checkpoint": "outputs/model_ablation_mps/variant_paper.pt",
+      "inference_checkpoint": "outputs/model_ablation_mps/variant_paper_inference.pt",
+      "best_psnr": 7.4921870681308995,
+      "latest_loss": 0.3847026228904724,
+      "training_validation": {
+        "psnr": 7.4921870681308995,
+        "ssim": 0.04047340961794058,
+        "samples": 6.0
+      },
+      "evaluation": {
+        "checkpoint": "outputs/model_ablation_mps/variant_paper_inference.pt",
+        "device": "mps",
+        "samples": 6,
+        "average_psnr": 7.4921870681308995,
+        "average_ssim": 0.04047340961794058,
+        "per_image": [
+          {
+            "name": "eval_00.png",
+            "psnr": 9.780038572837263,
+            "ssim": 0.03854665905237198
+          },
+          {
+            "name": "eval_01.png",
+            "psnr": 5.253296789289296,
+            "ssim": 0.0391262024641037
+          },
+          {
+            "name": "eval_02.png",
+            "psnr": 5.575963700428036,
+            "ssim": 0.03304257243871689
+          },
+          {
+            "name": "eval_03.png",
+            "psnr": 7.658827035093863,
+            "ssim": 0.04837577044963837
+          },
+          {
+            "name": "eval_04.png",
+            "psnr": 8.279517837694339,
+            "ssim": 0.04630054906010628
+          },
+          {
+            "name": "eval_05.png",
+            "psnr": 8.405478473442601,
+            "ssim": 0.0374487042427063
+          }
+        ]
+      },
+      "profile": {
+        "device": "mps",
+        "parameters": 450864,
+        "macs": 933903840,
+        "flops": 1867807680,
+        "latency_ms": 13.8791
+      }
+    },
+    {
+      "name": "variant_balanced",
+      "group": "variant",
+      "variant": "balanced",
+      "description": "Slightly wider model for capacity/performance tradeoff.",
+      "model_config": {
+        "upscale": 2,
+        "in_channels": 3,
+        "embed_dim": 48,
+        "num_pfem": 4,
+        "window_size": 8,
+        "num_heads": 6,
+        "mlp_ratio": 2.0,
+        "espm_levels": 3,
+        "split_ratio": 0.5,
+        "share_pfem_weights": false,
+        "variant": "balanced"
+      },
+      "train_config": {
+        "scale": 2,
+        "patch_size": 48,
+        "batch_size": 2,
+        "learning_rate": 0.0005,
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "weight_decay": 0.0,
+        "ema_decay": 0.999,
+        "total_steps": 8,
+        "save_every": 8,
+        "log_every": 1,
+        "num_workers": 0,
+        "seed": 42,
+        "device": "mps",
+        "amp": "off",
+        "grad_clip_norm": 0.0,
+        "channels_last": true,
+        "compile_model": false,
+        "val_every": 4,
+        "max_validation_images": 6,
+        "save_best": true,
+        "checkpoint_history": 1
+      },
+      "train_wall_time_s": 4.0028,
+      "final_checkpoint": "outputs/model_ablation_mps/variant_balanced.pt",
+      "inference_checkpoint": "outputs/model_ablation_mps/variant_balanced_inference.pt",
+      "best_psnr": 7.656368927122777,
+      "latest_loss": 0.4050721228122711,
+      "training_validation": {
+        "psnr": 7.656368927122777,
+        "ssim": 0.05918558004001776,
+        "samples": 6.0
+      },
+      "evaluation": {
+        "checkpoint": "outputs/model_ablation_mps/variant_balanced_inference.pt",
+        "device": "mps",
+        "samples": 6,
+        "average_psnr": 7.656368927122777,
+        "average_ssim": 0.05918558004001776,
+        "per_image": [
+          {
+            "name": "eval_00.png",
+            "psnr": 10.880324775217803,
+            "ssim": 0.06430269032716751
+          },
+          {
+            "name": "eval_01.png",
+            "psnr": 4.852130418931156,
+            "ssim": 0.04434245824813843
+          },
+          {
+            "name": "eval_02.png",
+            "psnr": 5.394532231756353,
+            "ssim": 0.04341535642743111
+          },
+          {
+            "name": "eval_03.png",
+            "psnr": 7.743658934134921,
+            "ssim": 0.05334139242768288
+          },
+          {
+            "name": "eval_04.png",
+            "psnr": 8.695173884768453,
+            "ssim": 0.09182620793581009
+          },
+          {
+            "name": "eval_05.png",
+            "psnr": 8.37239331792798,
+            "ssim": 0.05788537487387657
+          }
+        ]
+      },
+      "profile": {
+        "device": "mps",
+        "parameters": 647160,
+        "macs": 1317416832,
+        "flops": 2634833664,
+        "latency_ms": 12.7026
+      }
+    },
+    {
+      "name": "ablation_pfem2",
+      "group": "ablation",
+      "variant": "paper",
+      "description": "Reduce PFEM depth from n=4 to n=2.",
+      "model_config": {
+        "upscale": 2,
+        "in_channels": 3,
+        "embed_dim": 40,
+        "num_pfem": 2,
+        "window_size": 8,
+        "num_heads": 4,
+        "mlp_ratio": 2.0,
+        "espm_levels": 3,
+        "split_ratio": 0.5,
+        "share_pfem_weights": false,
+        "variant": "paper"
+      },
+      "train_config": {
+        "scale": 2,
+        "patch_size": 48,
+        "batch_size": 2,
+        "learning_rate": 0.0005,
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "weight_decay": 0.0,
+        "ema_decay": 0.999,
+        "total_steps": 8,
+        "save_every": 8,
+        "log_every": 1,
+        "num_workers": 0,
+        "seed": 42,
+        "device": "mps",
+        "amp": "off",
+        "grad_clip_norm": 0.0,
+        "channels_last": true,
+        "compile_model": false,
+        "val_every": 4,
+        "max_validation_images": 6,
+        "save_best": true,
+        "checkpoint_history": 1
+      },
+      "train_wall_time_s": 1.2694,
+      "final_checkpoint": "outputs/model_ablation_mps/ablation_pfem2.pt",
+      "inference_checkpoint": "outputs/model_ablation_mps/ablation_pfem2_inference.pt",
+      "best_psnr": 9.105382723963146,
+      "latest_loss": 0.2842760384082794,
+      "training_validation": {
+        "psnr": 9.105382723963146,
+        "ssim": 0.05820918610940377,
+        "samples": 6.0
+      },
+      "evaluation": {
+        "checkpoint": "outputs/model_ablation_mps/ablation_pfem2_inference.pt",
+        "device": "mps",
+        "samples": 6,
+        "average_psnr": 9.105382723963146,
+        "average_ssim": 0.05820918610940377,
+        "per_image": [
+          {
+            "name": "eval_00.png",
+            "psnr": 11.13632377099165,
+            "ssim": 0.052726078778505325
+          },
+          {
+            "name": "eval_01.png",
+            "psnr": 6.119578462685156,
+            "ssim": 0.01994396187365055
+          },
+          {
+            "name": "eval_02.png",
+            "psnr": 6.0518509218446095,
+            "ssim": 0.031736548990011215
+          },
+          {
+            "name": "eval_03.png",
+            "psnr": 9.696156382521416,
+            "ssim": 0.0847061350941658
+          },
+          {
+            "name": "eval_04.png",
+            "psnr": 9.873843549919343,
+            "ssim": 0.08498429507017136
+          },
+          {
+            "name": "eval_05.png",
+            "psnr": 11.754543255816705,
+            "ssim": 0.07515809684991837
+          }
+        ]
+      },
+      "profile": {
+        "device": "mps",
+        "parameters": 304138,
+        "macs": 563492320,
+        "flops": 1126984640,
+        "latency_ms": 9.2079
+      }
+    },
+    {
+      "name": "ablation_shared_pfem",
+      "group": "ablation",
+      "variant": "paper",
+      "description": "Share PFEM block weights across repeated applications.",
+      "model_config": {
+        "upscale": 2,
+        "in_channels": 3,
+        "embed_dim": 40,
+        "num_pfem": 4,
+        "window_size": 8,
+        "num_heads": 4,
+        "mlp_ratio": 2.0,
+        "espm_levels": 3,
+        "split_ratio": 0.5,
+        "share_pfem_weights": true,
+        "variant": "paper"
+      },
+      "train_config": {
+        "scale": 2,
+        "patch_size": 48,
+        "batch_size": 2,
+        "learning_rate": 0.0005,
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "weight_decay": 0.0,
+        "ema_decay": 0.999,
+        "total_steps": 8,
+        "save_every": 8,
+        "log_every": 1,
+        "num_workers": 0,
+        "seed": 42,
+        "device": "mps",
+        "amp": "off",
+        "grad_clip_norm": 0.0,
+        "channels_last": true,
+        "compile_model": false,
+        "val_every": 4,
+        "max_validation_images": 6,
+        "save_best": true,
+        "checkpoint_history": 1
+      },
+      "train_wall_time_s": 1.1296,
+      "final_checkpoint": "outputs/model_ablation_mps/ablation_shared_pfem.pt",
+      "inference_checkpoint": "outputs/model_ablation_mps/ablation_shared_pfem_inference.pt",
+      "best_psnr": 8.626971880631475,
+      "latest_loss": 0.4412638247013092,
+      "training_validation": {
+        "psnr": 8.626971880631475,
+        "ssim": 0.08027949122091134,
+        "samples": 6.0
+      },
+      "evaluation": {
+        "checkpoint": "outputs/model_ablation_mps/ablation_shared_pfem_inference.pt",
+        "device": "mps",
+        "samples": 6,
+        "average_psnr": 8.626971880631475,
+        "average_ssim": 0.08027949122091134,
+        "per_image": [
+          {
+            "name": "eval_00.png",
+            "psnr": 13.108600929857792,
+            "ssim": 0.12297424674034119
+          },
+          {
+            "name": "eval_01.png",
+            "psnr": 5.621230983765041,
+            "ssim": 0.050168655812740326
+          },
+          {
+            "name": "eval_02.png",
+            "psnr": 6.643427007607076,
+            "ssim": 0.09249480813741684
+          },
+          {
+            "name": "eval_03.png",
+            "psnr": 7.802000448396461,
+            "ssim": 0.05551569536328316
+          },
+          {
+            "name": "eval_04.png",
+            "psnr": 8.661544851895197,
+            "ssim": 0.08602657169103622
+          },
+          {
+            "name": "eval_05.png",
+            "psnr": 9.925027062267285,
+            "ssim": 0.07449696958065033
+          }
+        ]
+      },
+      "profile": {
+        "device": "mps",
+        "parameters": 230775,
+        "macs": 933903840,
+        "flops": 1867807680,
+        "latency_ms": 12.1492
+      }
+    },
+    {
+      "name": "ablation_espm2",
+      "group": "ablation",
+      "variant": "paper",
+      "description": "Reduce ESPM pyramid depth from 3 to 2.",
+      "model_config": {
+        "upscale": 2,
+        "in_channels": 3,
+        "embed_dim": 40,
+        "num_pfem": 4,
+        "window_size": 8,
+        "num_heads": 4,
+        "mlp_ratio": 2.0,
+        "espm_levels": 2,
+        "split_ratio": 0.5,
+        "share_pfem_weights": false,
+        "variant": "paper"
+      },
+      "train_config": {
+        "scale": 2,
+        "patch_size": 48,
+        "batch_size": 2,
+        "learning_rate": 0.0005,
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "weight_decay": 0.0,
+        "ema_decay": 0.999,
+        "total_steps": 8,
+        "save_every": 8,
+        "log_every": 1,
+        "num_workers": 0,
+        "seed": 42,
+        "device": "mps",
+        "amp": "off",
+        "grad_clip_norm": 0.0,
+        "channels_last": true,
+        "compile_model": false,
+        "val_every": 4,
+        "max_validation_images": 6,
+        "save_best": true,
+        "checkpoint_history": 1
+      },
+      "train_wall_time_s": 1.7179,
+      "final_checkpoint": "outputs/model_ablation_mps/ablation_espm2.pt",
+      "inference_checkpoint": "outputs/model_ablation_mps/ablation_espm2_inference.pt",
+      "best_psnr": 9.142675860043562,
+      "latest_loss": 0.44520068168640137,
+      "training_validation": {
+        "psnr": 9.142675860043562,
+        "ssim": 0.050674100096027054,
+        "samples": 6.0
+      },
+      "evaluation": {
+        "checkpoint": "outputs/model_ablation_mps/ablation_espm2_inference.pt",
+        "device": "mps",
+        "samples": 6,
+        "average_psnr": 9.142675860043562,
+        "average_ssim": 0.050674100096027054,
+        "per_image": [
+          {
+            "name": "eval_00.png",
+            "psnr": 11.477906873135142,
+            "ssim": 0.06132657453417778
+          },
+          {
+            "name": "eval_01.png",
+            "psnr": 6.753044905898967,
+            "ssim": 0.041608527302742004
+          },
+          {
+            "name": "eval_02.png",
+            "psnr": 7.170449503033192,
+            "ssim": 0.03604986518621445
+          },
+          {
+            "name": "eval_03.png",
+            "psnr": 9.617337153342756,
+            "ssim": 0.05924651399254799
+          },
+          {
+            "name": "eval_04.png",
+            "psnr": 9.741831928989555,
+            "ssim": 0.05896824225783348
+          },
+          {
+            "name": "eval_05.png",
+            "psnr": 10.095484795861765,
+            "ssim": 0.04684487730264664
+          }
+        ]
+      },
+      "profile": {
+        "device": "mps",
+        "parameters": 398584,
+        "macs": 919155840,
+        "flops": 1838311680,
+        "latency_ms": 11.4994
+      }
+    }
+  ]
+}
