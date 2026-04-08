@@ -12,6 +12,10 @@
 - Upload a PNG or JPEG image.
 - Confirm the result panel updates with a super-resolved image.
 - Confirm the compare slider moves without layout breakage.
+- Confirm the hover zoom/loupe appears on the SR output.
+- Confirm the pipeline timeline animates during inference and then settles to measured stages.
+- Confirm the deployment panel shows model version, checkpoint source, build time, git commit, and device target.
+- Confirm the `/model` page loads and the architecture explainer renders.
 - Confirm the stats cards show:
   - model name
   - parameter count
@@ -37,6 +41,7 @@
   - `cd frontend && npm run lint`
   - `cd frontend && npm run typecheck`
   - `cd frontend && npm run build`
+  - `cd frontend && npm run test:e2e`
 - Docker config:
   - `docker compose config`
   - `docker compose up -d --build`
@@ -45,4 +50,4 @@
 ## Known constraints
 
 - The included demo checkpoint is a lightweight synthetic bootstrap checkpoint for local demos, not a full benchmark-trained paper reproduction artifact.
-- Browser interaction is still verified manually; there is no Playwright-style automated UI suite yet.
+- Docker builds do not automatically inject the host git commit into the backend image unless `EPNET_GIT_COMMIT` is provided at build/runtime.

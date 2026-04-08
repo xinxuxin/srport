@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 
+import { SiteNav } from "../components/site-nav";
 import "./globals.css";
 
 const heading = Space_Grotesk({
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${heading.variable} ${mono.variable} bg-canvas text-ink antialiased`}>
+        <SiteNav />
         {children}
       </body>
     </html>

@@ -36,6 +36,20 @@ def test_super_resolve_endpoint_returns_metadata() -> None:
     assert payload["input"]["resolution"] == {"width": 8, "height": 8}
     assert payload["output"]["resolution"] == {"width": 32, "height": 32}
     assert payload["model"]["name"] == "EPNet"
+    assert payload["output_image_url"].startswith("/artifacts/")
+    artifact = client.get(payload["output_image_url"])
+    assert artifact.status_code == 200
+    assert payload["pipeline"]["total_duration_ms"] >= 0
+
+
+def test_model_info_includes_deployment_metadata() -> None:
+    client = TestClient(create_app())
+    response = client.get("/api/v1/model/info")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["deployment"]["model_version"].startswith("epnet-x")
+    assert "git_commit" in payload["deployment"]
+    assert payload["deployment"]["device_target"] == "cpu"
 
 
 def test_infer_alias_and_usage_routes_work() -> None:

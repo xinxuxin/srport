@@ -11,8 +11,11 @@ This repository reproduces the paper's EPNet architecture as faithfully as possi
 - Evaluation pipeline with PSNR and SSIM.
 - Inference CLI with parameter count, estimated MACs/FLOPs, and latency profiling.
 - FastAPI backend with `/health`, `/model/info`, `/infer`, `/super-resolve`, `/usage/summary`, `/usage/recent`, and `/analytics/summary`.
+- URL-based output artifacts served from the backend instead of inline base64 payloads.
 - SQLite usage analytics for inference requests.
-- Animated Next.js frontend with drag-and-drop upload, result previews, telemetry cards, and charts.
+- Animated Next.js frontend with drag-and-drop upload, result previews, zoomable compare, telemetry cards, charts, a model explainer page, and a pipeline timeline.
+- Deployment-aware model metadata including model version, checkpoint source, build time, git commit, and device target.
+- Playwright smoke coverage for the primary demo flows.
 - Dockerfiles, `docker-compose.yml`, and a one-command local launcher.
 - Explicit reproduction notes in [docs/epnet_assumptions.md](/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md).
 - Audit artifacts in [final_audit_report.md](/Users/macbook/Desktop/epnet/docs/final_audit_report.md), [optimization_report.md](/Users/macbook/Desktop/epnet/docs/optimization_report.md), and [demo_checklist.md](/Users/macbook/Desktop/epnet/docs/demo_checklist.md).
@@ -87,6 +90,12 @@ Primary endpoints:
 
 Backward-compatible aliases are also available at `POST /api/v1/super-resolve` and `GET /api/v1/analytics/summary`.
 
+Inference responses now include:
+
+- `output_image_url` for the generated artifact
+- `pipeline` stage timings for decode, preprocess, infer, encode, and log
+- `deployment` metadata nested under `model`
+
 Upload guardrails:
 
 - allowed formats: PNG, JPEG, WEBP, BMP
@@ -120,6 +129,7 @@ The backend image installs a CPU-only PyTorch wheel so the local demo stack does
 - `cd frontend && npm run lint`
 - `cd frontend && npm run typecheck`
 - `cd frontend && npm run build`
+- `cd frontend && npm run test:e2e`
 - `docker compose config`
 - `docker compose up -d --build`
 - `docker compose ps`

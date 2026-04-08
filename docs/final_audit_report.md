@@ -48,10 +48,15 @@ This audit covered the EPNet single-image super-resolution demo across:
 ### Frontend checks
 
 - homepage load from a live Next.js server
+- model explainer page load from a live Next.js server
 - presence of main EPNet demo UI content in the served page
 - integration against the live backend
 - drag-and-drop/upload code path review
 - production build and route generation
+- Playwright smoke coverage for:
+  - successful upload and output rendering
+  - invalid upload error handling
+  - post-inference page refresh stability
 
 ### Docker checks
 
@@ -87,6 +92,8 @@ This audit covered the EPNet single-image super-resolution demo across:
 - Switched request-time inference execution to `torch.inference_mode()`.
 - Replaced per-request model profiling with real wall-clock latency measurement for the actual inference pass.
 - Added analytics `recent()` support and separated usage-summary and recent-usage retrieval.
+- Replaced inline base64 image delivery with backend-served output artifact URLs.
+- Added deployment metadata and per-stage pipeline timing data to the inference/model contract.
 
 ### Model and training
 
@@ -102,6 +109,9 @@ This audit covered the EPNet single-image super-resolution demo across:
 - Added client-side upload validation for type and size.
 - Added object-URL cleanup to avoid preview-memory leaks.
 - Added a lightweight comparison slider to make before/after inspection clearer.
+- Added a hover loupe and automatic compare sweep to make visual SR differences easier to present.
+- Added a model explainer page that reframes PFEM, ESPM, and reconstruction in product language.
+- Added a deployment/version panel and an animated request pipeline timeline.
 - Made `npm run typecheck` stable by generating Next route types first.
 
 ### Tests
@@ -114,6 +124,7 @@ This audit covered the EPNet single-image super-resolution demo across:
   - corrupt-image upload handling
   - oversized upload rejection
   - checkpoint resume behavior
+- Added Playwright smoke tests for the core demo user flow.
 
 ### Docker and packaging
 
@@ -132,6 +143,5 @@ This audit covered the EPNet single-image super-resolution demo across:
 ## Remaining Gaps / Future Improvements
 
 - The frontend lint command still uses legacy ESLint config compatibility mode and emits a deprecation warning.
-- The demo still returns SR images inline as base64 JSON, which is simple but inefficient for larger production-style payloads.
 - The project still relies on a small synthetic demo checkpoint for easy local bring-up; a true paper-style trained checkpoint remains a separate longer-running step.
-- There is no browser-automation E2E suite yet; live HTTP verification was completed, but UI interaction was not automated in-browser in this environment.
+- Containerized demos still show `git_commit=unknown` unless build metadata is injected explicitly.

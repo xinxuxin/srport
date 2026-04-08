@@ -23,8 +23,21 @@
 - Added object-URL cleanup so repeated uploads do not accumulate preview-memory leaks.
 - Added client-side file validation so obviously invalid or oversized files are rejected before an API round trip.
 - Stabilized type generation so frontend typecheck no longer depends on a prior build.
+- Added a dedicated model explainer page, deployment panel, animated pipeline timeline, compare auto-sweep, and hover loupe for presentation-quality demos.
 - Converted the frontend Docker image to a multi-stage standalone Next.js runtime.
   - Result: `epnet-frontend` dropped from about `1.45 GB` to about `302 MB` in local verification.
+
+### API contract
+
+- Replaced inline base64 output delivery with backend-served output artifact URLs.
+  - Result: responses are smaller, more production-shaped, and easier for the frontend to render or download.
+- Added deployment metadata to `model/info` responses:
+  - model version
+  - checkpoint source
+  - build time
+  - git commit
+  - device target
+- Added per-stage pipeline timing metadata to inference responses for upload-to-log storytelling in the UI.
 
 ### Docker / packaging
 
@@ -58,9 +71,9 @@
 ### Frontend
 
 - Move from legacy ESLint config compatibility mode to a flat ESLint config.
-- Add browser-automated smoke tests for upload, error states, and analytics rendering.
 - Consider using `next/image` or a dedicated canvas-based compare component if image sizes increase.
 - Consider making the dashboard cards and analytics panel stream or skeleton-render independently to reduce perceived loading delay on first load.
+- Consider adding a benchmark page with preset scenarios and baseline comparisons for richer interview demos.
 
 ### DevEx
 
@@ -68,3 +81,4 @@
 - Add a dedicated backend smoke-test script for CI.
 - Add environment-variable documentation for all runtime knobs, especially upload and checkpoint settings.
 - Consider a slimmer backend base image or wheelhouse caching strategy if Docker rebuild frequency becomes high.
+- Consider injecting build metadata automatically during Docker builds so `git_commit` is no longer `unknown` inside containerized demos.

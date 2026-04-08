@@ -11,6 +11,15 @@ class Resolution(BaseModel):
     height: int
 
 
+class DeploymentInfo(BaseModel):
+    model_version: str
+    checkpoint_source: str
+    build_time: str
+    git_commit: str
+    device_target: str
+    api_version: str
+
+
 class ModelInfoResponse(BaseModel):
     name: str
     paper_title: str
@@ -23,6 +32,7 @@ class ModelInfoResponse(BaseModel):
     estimated_flops: int
     reference_latency_ms: float
     architecture: dict[str, object]
+    deployment: DeploymentInfo
 
 
 class RuntimeInfo(BaseModel):
@@ -38,14 +48,27 @@ class ImageInfo(BaseModel):
     bytes: int
 
 
+class PipelineStageInfo(BaseModel):
+    key: str
+    label: str
+    description: str
+    duration_ms: float
+
+
+class PipelineInfo(BaseModel):
+    total_duration_ms: float
+    stages: list[PipelineStageInfo]
+
+
 class InferenceResponse(BaseModel):
     request_id: str
     created_at: datetime
-    output_image_base64: str
+    output_image_url: str
     model: ModelInfoResponse
     runtime: RuntimeInfo
     input: ImageInfo
     output: ImageInfo
+    pipeline: PipelineInfo
 
 
 class AnalyticsPoint(BaseModel):
