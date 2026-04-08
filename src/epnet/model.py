@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import torch
 from torch import Tensor, nn
 
 from .config import ModelConfig
@@ -74,3 +77,21 @@ def load_model_from_checkpoint(checkpoint: dict[str, object]) -> EPNet:
         raise ValueError("Checkpoint is missing model_state")
     model.load_state_dict(state)
     return model
+
+
+def load_checkpoint(
+    checkpoint_path: Path | str,
+    map_location: str | torch.device = "cpu",
+) -> dict[str, object]:
+    try:
+        checkpoint = torch.load(
+            checkpoint_path,
+            map_location=map_location,
+            weights_only=True,
+        )
+    except TypeError:
+        checkpoint = torch.load(checkpoint_path, map_location=map_location)
+
+    if not isinstance(checkpoint, dict):
+        raise ValueError("Checkpoint must deserialize to a dictionary.")
+    return checkpoint

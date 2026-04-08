@@ -12,7 +12,7 @@ import torch
 from PIL import Image, UnidentifiedImageError
 
 from epnet import EPNet, ModelConfig
-from epnet.model import load_model_from_checkpoint
+from epnet.model import load_checkpoint, load_model_from_checkpoint
 from epnet.profiling import ModelProfile, profile_model
 from epnet.utils import pil_to_tensor, tensor_to_pil
 
@@ -52,7 +52,7 @@ class InferenceService:
         checkpoint_candidate = self.settings.checkpoint_path
         checkpoint_path: Path | None
         if checkpoint_candidate.exists():
-            checkpoint = torch.load(checkpoint_candidate, map_location="cpu")
+            checkpoint = load_checkpoint(checkpoint_candidate, map_location="cpu")
             model = load_model_from_checkpoint(checkpoint)
             ema_state = checkpoint.get("ema_state")
             if isinstance(ema_state, dict):

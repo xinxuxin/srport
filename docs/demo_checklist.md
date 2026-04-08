@@ -39,8 +39,10 @@
   - `cd frontend && npm run build`
 - Docker config:
   - `docker compose config`
+  - `docker compose up -d --build`
+  - `docker compose ps`
 
 ## Known constraints
 
-- Full Docker runtime validation depends on a running local Docker daemon.
 - The included demo checkpoint is a lightweight synthetic bootstrap checkpoint for local demos, not a full benchmark-trained paper reproduction artifact.
+- Browser interaction is still verified manually; there is no Playwright-style automated UI suite yet.

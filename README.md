@@ -108,6 +108,8 @@ docker compose up --build
 
 The frontend will be available on `http://localhost:3000` and the backend on `http://localhost:8000`.
 
+The backend image installs a CPU-only PyTorch wheel so the local demo stack does not pull unnecessary CUDA runtime packages during Docker builds. The compose file also includes backend and frontend health checks so startup failures are easier to spot during demos.
+
 ## Verification So Far
 
 - `PYTHONPATH=src PYTHONPYCACHEPREFIX=.pycache python3 -m compileall src`
@@ -119,6 +121,8 @@ The frontend will be available on `http://localhost:3000` and the backend on `ht
 - `cd frontend && npm run typecheck`
 - `cd frontend && npm run build`
 - `docker compose config`
+- `docker compose up -d --build`
+- `docker compose ps`
 
 ## Reproduction Notes
 

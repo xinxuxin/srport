@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Dataset
 from .config import ModelConfig, TrainConfig
 from .data import SyntheticPatternDataset, TrainImageFolderDataset
 from .ema import ExponentialMovingAverage
-from .model import EPNet
+from .model import EPNet, load_checkpoint
 from .utils import ensure_dir, set_seed
 
 
@@ -73,15 +73,21 @@ def train(
     start_step = 0
 
     if resume_path is not None:
-        checkpoint = torch.load(resume_path, map_location=device)
-        model.load_state_dict(checkpoint["model_state"])
+        checkpoint = load_checkpoint(resume_path, map_location=device)
+        model_state = checkpoint.get("model_state")
+        if not isinstance(model_state, dict):
+            raise ValueError("Checkpoint is missing model_state for resume.")
+        model.load_state_dict(model_state)
         optimizer_state = checkpoint.get("optimizer_state")
         if isinstance(optimizer_state, dict):
             optimizer.load_state_dict(optimizer_state)
         ema_state = checkpoint.get("ema_state")
         if isinstance(ema_state, dict):
             ema.shadow.load_state_dict(ema_state)
-        start_step = int(checkpoint.get("step", 0))
+        step_value = checkpoint.get("step", 0)
+        if not isinstance(step_value, (int, float, str)):
+            raise ValueError("Checkpoint step must be numeric or string-coercible.")
+        start_step = int(step_value)
 
     if train_dir is not None:
         dataset: Dataset[tuple[Tensor, Tensor]] = TrainImageFolderDataset(

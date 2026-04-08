@@ -7,13 +7,13 @@ from typing import Any
 
 import torch
 
-from .model import load_model_from_checkpoint
+from .model import load_checkpoint, load_model_from_checkpoint
 from .profiling import profile_model
 from .utils import load_image, pil_to_tensor, save_image, tensor_to_pil
 
 
 def run_inference(checkpoint_path: Path, input_path: Path, output_path: Path) -> dict[str, Any]:
-    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    checkpoint = load_checkpoint(checkpoint_path, map_location="cpu")
     model = load_model_from_checkpoint(checkpoint)
     ema_state = checkpoint.get("ema_state")
     if isinstance(ema_state, dict):
@@ -23,7 +23,7 @@ def run_inference(checkpoint_path: Path, input_path: Path, output_path: Path) ->
     image = load_image(input_path)
     tensor = pil_to_tensor(image).unsqueeze(0)
 
-    with torch.no_grad():
+    with torch.inference_mode():
         prediction = model(tensor)[0]
 
     output_image = tensor_to_pil(prediction)

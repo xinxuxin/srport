@@ -10,11 +10,11 @@ from torch.utils.data import DataLoader
 
 from .data import EvaluationImageDataset
 from .metrics import evaluate_prediction
-from .model import load_model_from_checkpoint
+from .model import load_checkpoint, load_model_from_checkpoint
 
 
 def evaluate(checkpoint_path: Path, hr_dir: Path) -> dict[str, object]:
-    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    checkpoint = load_checkpoint(checkpoint_path, map_location="cpu")
     model = load_model_from_checkpoint(checkpoint)
     ema_state = checkpoint.get("ema_state")
     if isinstance(ema_state, dict):
@@ -26,7 +26,7 @@ def evaluate(checkpoint_path: Path, hr_dir: Path) -> dict[str, object]:
     loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     results = []
-    with torch.no_grad():
+    with torch.inference_mode():
         for name, lr, hr in loader:
             prediction = model(lr)
             metrics = evaluate_prediction(prediction[0], hr[0], shave=scale)
