@@ -43,6 +43,13 @@ def _default_checkpoint_path() -> Path:
     return _repo_root() / "checkpoints" / "demo_x4.pt"
 
 
+def _default_checkpoint_dir() -> Path | None:
+    trained_dir = _trained_run_dir()
+    if trained_dir.exists() and any(trained_dir.glob("*.pt")):
+        return trained_dir
+    return None
+
+
 def _default_onnx_model_path() -> Path:
     return _trained_run_dir() / "model.onnx"
 
@@ -53,7 +60,7 @@ class Settings:
     app_version: str = "0.1.0"
     api_prefix: str = "/api/v1"
     checkpoint_path: Path = _default_checkpoint_path()
-    checkpoint_dir: Path | None = None
+    checkpoint_dir: Path | None = _default_checkpoint_dir()
     inference_backend: str = "pytorch"
     onnx_model_path: Path | None = _default_onnx_model_path()
     analytics_db_path: Path = _repo_root() / "outputs" / "usage_analytics.sqlite3"
@@ -84,7 +91,11 @@ class Settings:
             )
         )
         checkpoint_dir_env = os.getenv("EPNET_CHECKPOINT_DIR")
-        checkpoint_dir = Path(checkpoint_dir_env) if checkpoint_dir_env else None
+        checkpoint_dir = (
+            Path(checkpoint_dir_env)
+            if checkpoint_dir_env
+            else _default_checkpoint_dir()
+        )
         inference_backend = os.getenv("EPNET_INFERENCE_BACKEND", "pytorch").strip().lower()
         onnx_model_path_env = os.getenv("EPNET_ONNX_MODEL_PATH")
         onnx_model_path = (

@@ -79,6 +79,7 @@ type DisplayResult = {
   inputResolution: Resolution;
   outputResolution: Resolution;
   latencyMs: number;
+  cpuTimeMs: number;
   parameterCount: number;
   estimatedMacs: number;
   estimatedFlops: number;
@@ -91,11 +92,12 @@ type DisplayResult = {
 const copy = {
   en: {
     demoEyebrow: "EPNet Demo",
-    heroTitle: "Efficient pyramid super-resolution with a system-level story.",
+    heroTitle: "Efficient pyramid super-resolution for deployment-ready demos.",
     heroBody:
       "This demo packages EPNet as a presentable AI solution: model telemetry, deployment metadata, a live inference timeline, bilingual UX, and usage analytics in one polished workflow.",
     parameters: "Parameters",
-    estimatedMacs: "Estimated MACs",
+    estimatedMacs: "Estimated Multi-Adds",
+    estimatedMemory: "Est. memory",
     referenceLatency: "Reference latency",
     deploymentPanel: "Deployment panel",
     modelVersion: "Model version",
@@ -149,6 +151,9 @@ const copy = {
     input: "Input",
     output: "Output",
     latency: "Latency",
+    cpuTime: "CPU time",
+    multiadds: "Multi-Adds",
+    memoryUsage: "Est. memory",
     flops: "FLOPs",
     noResult: "EPNet output will appear here",
     compareGallery: "A/B compare gallery",
@@ -183,11 +188,12 @@ const copy = {
   },
   zh: {
     demoEyebrow: "EPNet 演示",
-    heroTitle: "把高效金字塔超分辨率模型，讲成一套完整的系统故事。",
+    heroTitle: "面向部署演示的高效金字塔超分辨率方案。",
     heroBody:
       "这个 Demo 把 EPNet 打包成更适合展示的 AI 解决方案：模型指标、部署版本信息、动画化流水线、中英文界面，以及使用分析都放在同一条产品链路里。",
     parameters: "参数量",
-    estimatedMacs: "预估 MACs",
+    estimatedMacs: "预估 Multi-Adds",
+    estimatedMemory: "预估内存",
     referenceLatency: "参考延迟",
     deploymentPanel: "部署版本面板",
     modelVersion: "模型版本",
@@ -241,6 +247,9 @@ const copy = {
     input: "输入",
     output: "输出",
     latency: "延迟",
+    cpuTime: "CPU 时间",
+    multiadds: "Multi-Adds",
+    memoryUsage: "预估内存",
     flops: "FLOPs",
     noResult: "超分结果会显示在这里",
     compareGallery: "A/B 对比画廊",
@@ -295,6 +304,19 @@ function formatLatency(value: number): string {
   return `${value.toFixed(1)} ms`;
 }
 
+function formatMemoryBytes(value: number): string {
+  if (value >= 1024 ** 3) {
+    return `${(value / 1024 ** 3).toFixed(2)} GB`;
+  }
+  if (value >= 1024 ** 2) {
+    return `${(value / 1024 ** 2).toFixed(1)} MB`;
+  }
+  if (value >= 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+  return `${Math.round(value)} B`;
+}
+
 function formatShortDate(value: string): string {
   return new Date(value).toLocaleString();
 }
@@ -332,6 +354,7 @@ function normalizeInference(payload: InferenceResponse): DisplayResult {
     inputResolution: payload.input.resolution,
     outputResolution: payload.output.resolution,
     latencyMs: payload.runtime.latency_ms,
+    cpuTimeMs: payload.runtime.cpu_time_ms,
     parameterCount: payload.runtime.parameter_count,
     estimatedMacs: payload.runtime.estimated_macs,
     estimatedFlops: payload.runtime.estimated_flops,
@@ -372,6 +395,7 @@ function normalizeHistory(payload: HistoryEvent): DisplayResult {
     inputResolution: payload.input_resolution,
     outputResolution: payload.output_resolution,
     latencyMs: payload.latency_ms,
+    cpuTimeMs: 0,
     parameterCount: payload.parameter_count,
     estimatedMacs: payload.estimated_macs,
     estimatedFlops: payload.estimated_flops,
@@ -486,6 +510,21 @@ export function EpnetDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!model || checkpointName || method !== "epnet") {
+      return;
+    }
+    const preferred =
+      model.available_checkpoints.find((checkpoint) => checkpoint.scale === 4) ??
+      model.available_checkpoints[0];
+    if (preferred) {
+      setCheckpointName(preferred.name);
+      if (preferred.scale !== scale) {
+        setScale(preferred.scale);
+      }
+    }
+  }, [checkpointName, method, model, scale]);
+
+  useEffect(() => {
     const requestId = new URLSearchParams(window.location.search).get("request_id");
     if (requestId) {
       void (async () => {
@@ -531,10 +570,31 @@ export function EpnetDashboard() {
       setCheckpointName("");
       return;
     }
-    if (checkpointName && !checkpointOptions.some((checkpoint) => checkpoint.name === checkpointName)) {
+    if (
+      checkpointName &&
+      !checkpointOptions.some((checkpoint) => checkpoint.name === checkpointName)
+    ) {
       setCheckpointName("");
+      return;
+    }
+    if (!checkpointName && checkpointOptions[0]) {
+      setCheckpointName(checkpointOptions[0].name);
     }
   }, [checkpointName, checkpointOptions, method]);
+
+  useEffect(() => {
+    if (method !== "epnet" || !checkpointName) {
+      return;
+    }
+    void (async () => {
+      try {
+        const info = await fetchModelInfo(checkpointName);
+        setModel(info);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Unable to load checkpoint info.");
+      }
+    })();
+  }, [checkpointName, method]);
 
   const availableScales = useMemo(() => {
     if (method === "epnet" && epnetScales.length > 0) {
@@ -558,13 +618,15 @@ export function EpnetDashboard() {
   const batchAggregate = batchPayload?.aggregate ?? null;
 
   const commandSet = useMemo(() => {
-    const checkpointPath = checkpointOptions[0]?.checkpoint_path ?? "checkpoints/demo_x4.pt";
+    const selectedCheckpoint =
+      checkpointOptions.find((checkpoint) => checkpoint.name === checkpointName) ?? checkpointOptions[0];
+    const checkpointPath = selectedCheckpoint?.checkpoint_path ?? "checkpoints/demo_x4.pt";
     return {
       infer: `PYTHONPATH=src .venv/bin/epnet-infer --checkpoint ${checkpointPath} --input data/samples/demo_input.png --output outputs/demo_output.png`,
       eval: `PYTHONPATH=src .venv/bin/epnet-eval --checkpoint ${checkpointPath} --hr-dir path/to/benchmark_hr`,
       train: `PYTHONPATH=src .venv/bin/epnet-train --output checkpoints/epnet_x${scale}.pt --scale ${scale} --train-dir path/to/div2k_train_hr --steps 1000000`
     };
-  }, [checkpointOptions, scale]);
+  }, [checkpointName, checkpointOptions, scale]);
 
   function updateShareUrl(requestId: string) {
     const url = new URL(window.location.href);
@@ -831,7 +893,7 @@ export function EpnetDashboard() {
               <motion.div
                 {...fadeUp}
                 transition={{ duration: 0.45, delay: 0.15 }}
-                className="mt-6 grid gap-3 sm:grid-cols-3"
+                className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
               >
                 <MetricCard
                   label={text.parameters}
@@ -848,12 +910,22 @@ export function EpnetDashboard() {
                   label={text.estimatedMacs}
                   value={
                     model ? (
-                      <AnimatedCounter value={model.estimated_macs} format={formatCount} />
+                      <AnimatedCounter value={model.estimated_multiadds} format={formatCount} />
                     ) : (
                       "Loading"
                     )
                   }
                   accent="moss"
+                />
+                <MetricCard
+                  label={text.estimatedMemory}
+                  value={
+                    model ? (
+                      <AnimatedCounter value={model.estimated_memory_bytes} format={formatMemoryBytes} />
+                    ) : (
+                      "Loading"
+                    )
+                  }
                 />
                 <MetricCard
                   label={text.referenceLatency}
@@ -884,15 +956,21 @@ export function EpnetDashboard() {
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <span>{text.checkpointSource}</span>
-                    <span className="mono">{model?.deployment.checkpoint_source ?? "Loading"}</span>
+                    <span className="mono break-all text-right">
+                      {model?.deployment.checkpoint_source ?? "Loading"}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <span>{text.deviceTarget}</span>
-                    <span className="mono">{model?.deployment.device_target ?? "Loading"}</span>
+                    <span className="mono break-all text-right">
+                      {model?.deployment.device_target ?? "Loading"}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <span>{text.gitCommit}</span>
-                    <span className="mono">{model?.deployment.git_commit ?? "Loading"}</span>
+                    <span className="mono break-all text-right">
+                      {model?.deployment.git_commit ?? "Loading"}
+                    </span>
                   </div>
                   <div className="rounded-2xl bg-white/70 p-4 text-xs text-ink/65">
                     <p className="mono uppercase tracking-[0.22em] text-ink/45">{text.buildTime}</p>
@@ -1230,7 +1308,7 @@ export function EpnetDashboard() {
                 <h2 className="mt-2 text-2xl font-semibold">{text.resultTitle}</h2>
               </div>
               {result ? (
-                <div className="text-right">
+                <div className="min-w-0 text-right">
                   <div className="mono text-xs text-ink/55">
                     {text.requestLabel} {result.requestId.slice(0, 8)}
                   </div>
@@ -1266,7 +1344,7 @@ export function EpnetDashboard() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-4">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
                 label={text.input}
                 value={
@@ -1297,6 +1375,36 @@ export function EpnetDashboard() {
                   result ? <AnimatedCounter value={result.estimatedFlops} format={formatCount} /> : "Waiting"
                 }
               />
+              <MetricCard
+                label={text.cpuTime}
+                value={
+                  result ? <AnimatedCounter value={result.cpuTimeMs} format={formatLatency} /> : "Waiting"
+                }
+              />
+              <MetricCard
+                label={text.multiadds}
+                value={
+                  result ? <AnimatedCounter value={result.estimatedMacs} format={formatCount} /> : "Waiting"
+                }
+                accent="ember"
+              />
+              <MetricCard
+                label={text.parameters}
+                value={
+                  result ? <AnimatedCounter value={result.parameterCount} format={formatCount} /> : "Waiting"
+                }
+              />
+              <MetricCard
+                label={text.memoryUsage}
+                value={
+                  result && model ? (
+                    <AnimatedCounter value={model.estimated_memory_bytes} format={formatMemoryBytes} />
+                  ) : (
+                    "Waiting"
+                  )
+                }
+                accent="moss"
+              />
             </div>
 
             {result ? (
@@ -1317,52 +1425,6 @@ export function EpnetDashboard() {
                 </button>
               </div>
             ) : null}
-
-            <div className="mt-6 rounded-[24px] bg-sand p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="mono text-xs uppercase tracking-[0.28em] text-ink/55">
-                    {text.compareGallery}
-                  </p>
-                  <p className="mt-2 text-sm text-ink/62">{text.compareGalleryBody}</p>
-                </div>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                {(result?.variants ?? []).map((variant) => {
-                  const active = selectedVariantMethod === variant.method;
-                  return (
-                    <button
-                      key={variant.method}
-                      type="button"
-                      onClick={() => setSelectedVariantMethod(variant.method)}
-                      className={`overflow-hidden rounded-[24px] border p-3 text-left transition ${
-                        active
-                          ? "border-dusk bg-white shadow-panel"
-                          : "border-dusk/10 bg-white/70 hover:border-dusk/30"
-                      }`}
-                    >
-                      <div className="aspect-[4/3] overflow-hidden rounded-[18px] bg-sand">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={variant.imageUrl} alt={variant.label} className="h-full w-full object-cover" />
-                      </div>
-                      <div className="mt-3 flex items-center justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium">{variant.label}</p>
-                          <p className="text-xs text-ink/50">
-                            {variant.format} · {formatCount(variant.bytes)}B
-                          </p>
-                        </div>
-                        {variant.isPrimary ? (
-                          <span className="mono rounded-full bg-ember/10 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-ember">
-                            Primary
-                          </span>
-                        ) : null}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
             <div className="mt-6 rounded-[24px] bg-sand p-4">
               <p className="mono text-xs uppercase tracking-[0.28em] text-ink/55">{text.oneClickRepro}</p>
@@ -1403,8 +1465,6 @@ export function EpnetDashboard() {
             transition={{ duration: 0.45, delay: 0.12 }}
             className="space-y-6"
           >
-            <ModelExplainer model={model} compact />
-
             <div className="panel p-5 md:p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -1561,6 +1621,77 @@ export function EpnetDashboard() {
             </div>
           </motion.div>
         </section>
+
+        <motion.section
+          {...fadeUp}
+          transition={{ duration: 0.45, delay: 0.14 }}
+          className="panel p-5 md:p-6"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="max-w-3xl">
+              <p className="mono text-xs uppercase tracking-[0.28em] text-ink/55">
+                {text.compareGallery}
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold">{text.compareGallery}</h2>
+              <p className="mt-3 text-sm text-ink/62">{text.compareGalleryBody}</p>
+            </div>
+            {result ? (
+              <div className="mono rounded-full bg-dusk px-3 py-2 text-[11px] uppercase tracking-[0.24em] text-white">
+                {result.variants.length} variants
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {(result?.variants ?? []).map((variant) => {
+              const active = selectedVariantMethod === variant.method;
+              return (
+                <button
+                  key={variant.method}
+                  type="button"
+                  onClick={() => setSelectedVariantMethod(variant.method)}
+                  className={`min-w-0 overflow-hidden rounded-[28px] border p-4 text-left transition ${
+                    active
+                      ? "border-dusk bg-white shadow-panel"
+                      : "border-dusk/10 bg-white/70 hover:border-dusk/30"
+                  }`}
+                >
+                  <div className="aspect-[16/10] overflow-hidden rounded-[22px] bg-sand">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={variant.imageUrl} alt={variant.label} className="h-full w-full object-cover" />
+                  </div>
+                  <div className="mt-4 flex min-w-0 items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="break-words text-base font-medium">{variant.label}</p>
+                      <p className="break-words text-xs text-ink/50">
+                        {variant.format} · {formatCount(variant.bytes)}B
+                      </p>
+                    </div>
+                    {variant.isPrimary ? (
+                      <span className="shrink-0 mono rounded-full bg-ember/10 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-ember">
+                        Primary
+                      </span>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
+
+            {!result ? (
+              <div className="rounded-[28px] border border-dusk/10 bg-white/70 px-5 py-12 text-center text-sm text-ink/55 md:col-span-2 xl:col-span-3">
+                {text.noResult}
+              </div>
+            ) : null}
+          </div>
+        </motion.section>
+
+        <motion.section
+          {...fadeUp}
+          transition={{ duration: 0.45, delay: 0.16 }}
+          className="panel p-5 md:p-6"
+        >
+          <ModelExplainer model={model} compact />
+        </motion.section>
       </div>
     </main>
   );

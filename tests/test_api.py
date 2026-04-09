@@ -37,6 +37,9 @@ def test_super_resolve_endpoint_returns_metadata() -> None:
     assert payload["output"]["resolution"] == {"width": 32, "height": 32}
     assert payload["model"]["name"] == "EPNet"
     assert payload["output_image_url"].startswith("/artifacts/")
+    assert "cpu_time_ms" in payload["runtime"]
+    assert "estimated_memory_bytes" in payload["runtime"]
+    assert "estimated_multiadds" in payload["runtime"]
     artifact = client.get(payload["output_image_url"])
     assert artifact.status_code == 200
     assert payload["pipeline"]["total_duration_ms"] >= 0
@@ -52,6 +55,8 @@ def test_model_info_includes_deployment_metadata() -> None:
     assert payload["deployment"]["runtime_backend"] == "pytorch"
     assert payload["deployment"]["artifact_path"] == payload["checkpoint_path"]
     assert payload["deployment"]["device_target"] == "cpu"
+    assert payload["estimated_memory_bytes"] > 0
+    assert payload["estimated_multiadds"] == payload["estimated_macs"]
 
 
 def test_infer_alias_and_usage_routes_work() -> None:

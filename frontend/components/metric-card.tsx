@@ -22,11 +22,14 @@ export function MetricCard({
   testId
 }: MetricCardProps) {
   return (
-    <div className={`rounded-3xl bg-gradient-to-br ${accentMap[accent]} p-[1px]`} data-testid={testId}>
-      <div className="h-full rounded-[23px] bg-white/80 p-4">
-        <p className="mono text-xs uppercase tracking-[0.28em] text-ink/55">{label}</p>
-        <p className="mt-3 text-2xl font-semibold">{value}</p>
-        {detail ? <p className="mt-2 text-xs text-ink/50">{detail}</p> : null}
+    <div
+      className={`min-w-0 rounded-3xl bg-gradient-to-br ${accentMap[accent]} p-[1px]`}
+      data-testid={testId}
+    >
+      <div className="h-full min-w-0 rounded-[23px] bg-white/80 p-4">
+        <p className="mono break-words text-xs uppercase tracking-[0.28em] text-ink/55">{label}</p>
+        <div className="mt-3 min-w-0 break-words text-2xl font-semibold">{value}</div>
+        {detail ? <p className="mt-2 break-words text-xs text-ink/50">{detail}</p> : null}
       </div>
     </div>
   );

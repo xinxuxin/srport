@@ -58,6 +58,7 @@ class RuntimeModel:
     name: str
     model: EPNet
     profile: ModelProfile
+    estimated_memory_bytes: int
     checkpoint_loaded: bool
     checkpoint_path: Path | None
     weights_source: str
@@ -153,6 +154,11 @@ class InferenceService:
         if isinstance(ema_state, dict):
             model.load_state_dict(ema_state)
         model.eval()
+        estimated_memory_bytes = sum(
+            tensor.element_size() * tensor.nelement()
+            for tensor in model.state_dict().values()
+            if isinstance(tensor, torch.Tensor)
+        ) * 2
         sample = torch.rand(
             1,
             3,
@@ -165,6 +171,7 @@ class InferenceService:
             name=checkpoint_path.stem,
             model=model,
             profile=profile,
+            estimated_memory_bytes=estimated_memory_bytes,
             checkpoint_loaded=True,
             checkpoint_path=checkpoint_path,
             weights_source="checkpoint",
@@ -233,7 +240,9 @@ class InferenceService:
             upscale=runtime.scale,
             parameter_count=runtime.profile.parameters,
             estimated_macs=runtime.profile.macs,
+            estimated_multiadds=runtime.profile.macs,
             estimated_flops=runtime.profile.flops,
+            estimated_memory_bytes=runtime.estimated_memory_bytes,
             reference_latency_ms=runtime.profile.latency_ms,
             architecture=runtime.model.config.to_dict(),
             deployment=DeploymentInfo(
@@ -276,6 +285,7 @@ class InferenceService:
         request_id = str(uuid.uuid4())
         created_at = datetime.now(timezone.utc)
         total_start = time.perf_counter()
+        total_cpu_start = time.process_time()
 
         decode_start = time.perf_counter()
         input_image = self._decode_image(image_bytes)
@@ -347,9 +357,12 @@ class InferenceService:
             model=reference_model_info,
             runtime=RuntimeInfo(
                 latency_ms=total_latency_ms,
+                cpu_time_ms=(time.process_time() - total_cpu_start) * 1000.0,
                 parameter_count=reference_model_info.parameter_count,
                 estimated_macs=reference_model_info.estimated_macs,
+                estimated_multiadds=reference_model_info.estimated_multiadds,
                 estimated_flops=reference_model_info.estimated_flops,
+                estimated_memory_bytes=reference_model_info.estimated_memory_bytes,
             ),
             input=ImageInfo(
                 resolution=Resolution(width=input_image.width, height=input_image.height),
@@ -448,9 +461,10 @@ class InferenceService:
             sum(stage.duration_ms for stage in response.pipeline.stages)
         )
         response.runtime.latency_ms = response.pipeline.total_duration_ms
+        response.runtime.cpu_time_ms = (time.process_time() - total_cpu_start) * 1000.0
         LOGGER.info(
             "Inference complete request_id=%s backend=%s checkpoint=%s "
-            "input=%sx%s output=%sx%s latency_ms=%.2f",
+            "input=%sx%s output=%sx%s latency_ms=%.2f cpu_time_ms=%.2f",
             request_id,
             runtime.runtime_backend if runtime else method_name,
             runtime.name if runtime else "baseline",
@@ -459,6 +473,7 @@ class InferenceService:
             output_image.width,
             output_image.height,
             response.runtime.latency_ms,
+            response.runtime.cpu_time_ms,
         )
         return response
 

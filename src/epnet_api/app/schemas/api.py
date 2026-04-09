@@ -39,7 +39,9 @@ class ModelInfoResponse(BaseModel):
     upscale: int
     parameter_count: int
     estimated_macs: int
+    estimated_multiadds: int
     estimated_flops: int
+    estimated_memory_bytes: int
     reference_latency_ms: float
     architecture: dict[str, object]
     deployment: DeploymentInfo
@@ -50,9 +52,12 @@ class ModelInfoResponse(BaseModel):
 
 class RuntimeInfo(BaseModel):
     latency_ms: float
+    cpu_time_ms: float
     parameter_count: int
     estimated_macs: int
+    estimated_multiadds: int
     estimated_flops: int
+    estimated_memory_bytes: int
 
 
 class ImageInfo(BaseModel):

@@ -31,7 +31,9 @@ export type ModelInfo = {
   upscale: number;
   parameter_count: number;
   estimated_macs: number;
+  estimated_multiadds: number;
   estimated_flops: number;
+  estimated_memory_bytes: number;
   reference_latency_ms: number;
   architecture: Record<string, unknown>;
   deployment: DeploymentInfo;
@@ -42,9 +44,12 @@ export type ModelInfo = {
 
 export type RuntimeInfo = {
   latency_ms: number;
+  cpu_time_ms: number;
   parameter_count: number;
   estimated_macs: number;
+  estimated_multiadds: number;
   estimated_flops: number;
+  estimated_memory_bytes: number;
 };
 
 export type ImageInfo = {
