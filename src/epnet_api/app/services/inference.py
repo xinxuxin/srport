@@ -219,6 +219,9 @@ class InferenceService:
             return runtime
 
         if scale is not None:
+            default_runtime = self.runtimes[self.default_runtime_name]
+            if default_runtime.scale == scale:
+                return default_runtime
             for runtime in self.runtimes.values():
                 if runtime.scale == scale:
                     return runtime
