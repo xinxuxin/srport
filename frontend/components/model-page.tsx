@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchModelInfo, ModelInfo } from "../lib/api";
+import { EPNetArchitectureDiagram } from "./epnet-architecture-diagram";
 import { useLanguage } from "./language-provider";
 import { MetricCard } from "./metric-card";
 import { ModelExplainer } from "./model-explainer";
@@ -122,6 +123,8 @@ export function ModelPage() {
         {error ? (
           <div className="rounded-[24px] bg-ember/10 px-4 py-3 text-sm text-ember">{error}</div>
         ) : null}
+
+        <EPNetArchitectureDiagram />
 
         <ModelExplainer model={model} />
 
