@@ -49,6 +49,8 @@ def test_model_info_includes_deployment_metadata() -> None:
     payload = response.json()
     assert payload["deployment"]["model_version"].startswith("epnet-x")
     assert "git_commit" in payload["deployment"]
+    assert payload["deployment"]["runtime_backend"] == "pytorch"
+    assert payload["deployment"]["artifact_path"] == payload["checkpoint_path"]
     assert payload["deployment"]["device_target"] == "cpu"
 
 

@@ -25,6 +25,8 @@ class DeploymentInfo(BaseModel):
     build_time: str
     git_commit: str
     device_target: str
+    runtime_backend: str
+    artifact_path: Optional[str]
     api_version: str
 
 

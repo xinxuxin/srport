@@ -17,6 +17,8 @@ export type DeploymentInfo = {
   build_time: string;
   git_commit: string;
   device_target: string;
+  runtime_backend: string;
+  artifact_path: string | null;
   api_version: string;
 };
 

@@ -11,6 +11,10 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
 
 
+def _trained_run_dir() -> Path:
+    return _repo_root() / "outputs" / "run_x4_edge_default"
+
+
 def _default_build_time() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -32,12 +36,26 @@ def _detect_git_commit() -> str:
     return result.stdout.strip() or "unknown"
 
 
+def _default_checkpoint_path() -> Path:
+    trained_inference = _trained_run_dir() / "inference.pt"
+    if trained_inference.exists():
+        return trained_inference
+    return _repo_root() / "checkpoints" / "demo_x4.pt"
+
+
+def _default_onnx_model_path() -> Path:
+    return _trained_run_dir() / "model.onnx"
+
+
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "EPNet Demo API"
     app_version: str = "0.1.0"
     api_prefix: str = "/api/v1"
-    checkpoint_path: Path = _repo_root() / "checkpoints" / "demo_x4.pt"
+    checkpoint_path: Path = _default_checkpoint_path()
+    checkpoint_dir: Path | None = None
+    inference_backend: str = "pytorch"
+    onnx_model_path: Path | None = _default_onnx_model_path()
     analytics_db_path: Path = _repo_root() / "outputs" / "usage_analytics.sqlite3"
     artifacts_dir: Path = _repo_root() / "outputs" / "generated"
     artifacts_url_prefix: str = "/artifacts"
@@ -62,8 +80,17 @@ class Settings:
         checkpoint = Path(
             os.getenv(
                 "EPNET_CHECKPOINT_PATH",
-                str(_repo_root() / "checkpoints" / "demo_x4.pt"),
+                str(_default_checkpoint_path()),
             )
+        )
+        checkpoint_dir_env = os.getenv("EPNET_CHECKPOINT_DIR")
+        checkpoint_dir = Path(checkpoint_dir_env) if checkpoint_dir_env else None
+        inference_backend = os.getenv("EPNET_INFERENCE_BACKEND", "pytorch").strip().lower()
+        onnx_model_path_env = os.getenv("EPNET_ONNX_MODEL_PATH")
+        onnx_model_path = (
+            Path(onnx_model_path_env)
+            if onnx_model_path_env
+            else _default_onnx_model_path()
         )
         database = Path(
             os.getenv(
@@ -80,8 +107,13 @@ class Settings:
         max_upload_bytes = int(os.getenv("EPNET_MAX_UPLOAD_BYTES", str(12 * 1024 * 1024)))
         max_image_pixels = int(os.getenv("EPNET_MAX_IMAGE_PIXELS", "16000000"))
         profile_size = int(os.getenv("EPNET_PROFILE_INPUT_SIZE", "64"))
+        if inference_backend not in {"pytorch", "onnx"}:
+            raise ValueError("EPNET_INFERENCE_BACKEND must be either 'pytorch' or 'onnx'.")
         return Settings(
             checkpoint_path=checkpoint,
+            checkpoint_dir=checkpoint_dir,
+            inference_backend=inference_backend,
+            onnx_model_path=onnx_model_path,
             analytics_db_path=database,
             artifacts_dir=artifacts_dir,
             max_upload_bytes=max_upload_bytes,

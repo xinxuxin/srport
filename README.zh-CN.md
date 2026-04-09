@@ -45,9 +45,7 @@
 
 ## 重要说明
 
-默认的 `checkpoints/demo_x4.pt` 是一个为了端到端可运行而准备的 demo 级 checkpoint，不是按论文完整训练得到的高质量基准权重。
-
-如果你希望做更强的视觉展示或 benchmark，请训练真实权重并放入 `checkpoints/` 目录。
+如果本地存在 `outputs/run_x4_edge_default/inference.pt`，系统现在会优先把它当作默认部署模型。旧的 `checkpoints/demo_x4.pt` 只作为没有真实训练产物时的 bootstrap fallback。
 
 论文中不明确的实现点都记录在：
 
@@ -262,9 +260,16 @@ outputs/
 - 创建 `.venv`
 - 安装后端依赖
 - 安装前端依赖
-- 如果缺少 `checkpoints/demo_x4.pt`，自动生成一个 demo 用 checkpoint
+- 如果存在 `outputs/run_x4_edge_default/inference.pt`，优先把它作为部署模型
+- 只有在没有真实训练部署 checkpoint 时，才回退到 `checkpoints/demo_x4.pt`
 - 启动 FastAPI：`http://localhost:8000`
 - 启动 Next.js：`http://localhost:3000`
+
+如果本机 `3000/8000` 被占用，可以直接覆盖端口：
+
+```bash
+EPNET_API_PORT=8011 EPNET_FRONTEND_PORT=3011 ./scripts/run_local.sh
+```
 
 ## API 概览
 
@@ -316,26 +321,43 @@ outputs/
 - 预估 MACs / FLOPs
 - 输入/输出产物 URL
 
-## Checkpoint 与倍率切换
+## Checkpoint 与部署 Artifact 选择
 
-后端会自动扫描 `checkpoints/*.pt`。
+后端默认只服务一个明确的部署 artifact：
 
-- 发现到的 checkpoint 会自动出现在前端切换器中
-- EPNet 的可选倍率取决于当前实际加载到的 checkpoint
-- 即使 EPNet 没有 x2/x3/x4 的完整权重，`Bicubic` 和 `Baseline` 仍然可以演示全部倍率
+- 优先默认值：`outputs/run_x4_edge_default/inference.pt`
+- fallback 默认值：`checkpoints/demo_x4.pt`
 
-例如如果你放入：
+部署 backend 现在是显式配置的：
 
-- `checkpoints/demo_x2.pt`
-- `checkpoints/demo_x3.pt`
-- `checkpoints/demo_x4.pt`
-- `checkpoints/epnet_stage200k_x4.pt`
+- 默认 backend：`pytorch`
+- 可选环境变量：`EPNET_INFERENCE_BACKEND=pytorch|onnx`
 
-前端就会自动把它们展示出来。
+如果你想切换部署 checkpoint：
+
+```bash
+EPNET_CHECKPOINT_PATH=/absolute/path/to/inference.pt ./scripts/run_local.sh
+```
+
+如果你想让前端 checkpoint 下拉框暴露一个目录里的多个 `.pt` artifact，可以显式指定：
+
+```bash
+EPNET_CHECKPOINT_DIR=/absolute/path/to/checkpoint_dir ./scripts/run_local.sh
+```
+
+如果设置了 `EPNET_INFERENCE_BACKEND=onnx`，系统会要求：
+
+- 有可用的 ONNX 模型文件
+- 本地安装了 `onnxruntime`
+
+当前默认仍然使用 PyTorch，因为它是训练后 EPNet artifact 最稳妥的部署路径。
 
 ## 环境变量
 
 - `EPNET_CHECKPOINT_PATH`
+- `EPNET_CHECKPOINT_DIR`
+- `EPNET_INFERENCE_BACKEND`
+- `EPNET_ONNX_MODEL_PATH`
 - `EPNET_ANALYTICS_DB_PATH`
 - `EPNET_ARTIFACTS_DIR`
 - `EPNET_MAX_UPLOAD_BYTES`
@@ -344,6 +366,14 @@ outputs/
 - `EPNET_BUILD_TIME`
 - `EPNET_GIT_COMMIT`
 - `EPNET_PROFILE_INPUT_SIZE`
+
+常用脚本级覆盖项：
+
+- `EPNET_API_HOST`
+- `EPNET_API_PORT`
+- `EPNET_FRONTEND_HOST`
+- `EPNET_FRONTEND_PORT`
+- `EPNET_API_RELOAD`
 
 ## Docker
 

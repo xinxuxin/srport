@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import time
 import uuid
 from dataclasses import dataclass
@@ -11,7 +12,7 @@ from statistics import mean
 import torch
 from PIL import Image, UnidentifiedImageError
 
-from epnet import EPNet, ModelConfig
+from epnet import EPNet
 from epnet.model import load_checkpoint, load_model_from_checkpoint
 from epnet.profiling import ModelProfile, profile_model
 from epnet.utils import ensure_dir, pil_to_tensor, resize_bicubic, tensor_to_pil
@@ -36,6 +37,7 @@ from .analytics import AnalyticsService
 
 SUPPORTED_METHODS = ("epnet", "bicubic", "baseline")
 SUPPORTED_SCALES = (2, 3, 4)
+LOGGER = logging.getLogger(__name__)
 
 
 def _percentile(values: list[float], percentile: float) -> float:
@@ -62,6 +64,8 @@ class RuntimeModel:
     device_target: str
     scale: int
     model_version: str
+    runtime_backend: str
+    artifact_path: Path | None
 
 
 @dataclass(frozen=True)
@@ -78,38 +82,69 @@ class InferenceService:
         self.default_runtime_name = self._select_default_runtime_name()
 
     def _load_runtime_models(self) -> dict[str, RuntimeModel]:
+        if self.settings.inference_backend == "onnx":
+            self._validate_onnx_backend()
+
         runtimes: dict[str, RuntimeModel] = {}
-        checkpoint_dir = self.settings.checkpoint_path.parent
+        for checkpoint_path in self._candidate_checkpoint_paths():
+            runtime = self._runtime_from_checkpoint(checkpoint_path)
+            runtimes[runtime.name] = runtime
 
-        if checkpoint_dir.exists():
-            for checkpoint_path in sorted(checkpoint_dir.glob("*.pt")):
-                runtime = self._runtime_from_checkpoint(checkpoint_path)
-                runtimes[runtime.name] = runtime
+        if not runtimes:
+            raise RuntimeError(
+                "No deployment checkpoint could be loaded. "
+                "Set EPNET_CHECKPOINT_PATH to a valid inference checkpoint."
+            )
 
-        if runtimes:
-            return runtimes
-
-        model = EPNet(ModelConfig())
-        model.eval()
-        sample = torch.rand(
-            1,
-            3,
-            self.settings.profile_input_size,
-            self.settings.profile_input_size,
+        LOGGER.info(
+            "Loaded %d deployment runtime(s) using %s backend from %s",
+            len(runtimes),
+            self.settings.inference_backend,
+            self.settings.checkpoint_dir or self.settings.checkpoint_path,
         )
-        profile = profile_model(model, sample)
-        random_runtime = RuntimeModel(
-            name="random-x4",
-            model=model,
-            profile=profile,
-            checkpoint_loaded=False,
-            checkpoint_path=None,
-            weights_source="random-initialization",
-            device_target=str(next(model.parameters()).device),
-            scale=model.config.upscale,
-            model_version="epnet-x4-random",
-        )
-        return {random_runtime.name: random_runtime}
+        return runtimes
+
+    def _candidate_checkpoint_paths(self) -> list[Path]:
+        if self.settings.checkpoint_dir is not None:
+            if not self.settings.checkpoint_dir.exists():
+                raise RuntimeError(
+                    f"EPNET_CHECKPOINT_DIR does not exist: {self.settings.checkpoint_dir}"
+                )
+            paths = sorted(
+                path
+                for path in self.settings.checkpoint_dir.glob("*.pt")
+                if path.is_file()
+            )
+            if not paths:
+                raise RuntimeError(
+                    "EPNET_CHECKPOINT_DIR does not contain any .pt artifacts: "
+                    f"{self.settings.checkpoint_dir}"
+                )
+            return paths
+
+        if not self.settings.checkpoint_path.exists():
+            raise RuntimeError(
+                f"Deployment checkpoint does not exist: {self.settings.checkpoint_path}"
+            )
+        return [self.settings.checkpoint_path]
+
+    def _validate_onnx_backend(self) -> None:
+        if self.settings.onnx_model_path is None:
+            raise RuntimeError(
+                "EPNET_INFERENCE_BACKEND=onnx requires EPNET_ONNX_MODEL_PATH "
+                "or a default ONNX export under outputs/run_x4_edge_default/model.onnx."
+            )
+        if not self.settings.onnx_model_path.exists():
+            raise RuntimeError(
+                f"Configured ONNX model does not exist: {self.settings.onnx_model_path}"
+            )
+        try:
+            import onnxruntime  # noqa: F401
+        except ImportError as exc:
+            raise RuntimeError(
+                "ONNX backend was requested, but onnxruntime is not installed. "
+                "Use EPNET_INFERENCE_BACKEND=pytorch or install onnxruntime."
+            ) from exc
 
     def _runtime_from_checkpoint(self, checkpoint_path: Path) -> RuntimeModel:
         checkpoint = load_checkpoint(checkpoint_path, map_location="cpu")
@@ -136,6 +171,8 @@ class InferenceService:
             device_target=str(next(model.parameters()).device),
             scale=scale,
             model_version=f"epnet-x{scale}-{checkpoint_path.stem}",
+            runtime_backend="pytorch",
+            artifact_path=checkpoint_path,
         )
 
     def _select_default_runtime_name(self) -> str:
@@ -205,6 +242,8 @@ class InferenceService:
                 build_time=self.settings.build_time,
                 git_commit=self.settings.git_commit,
                 device_target=runtime.device_target,
+                runtime_backend=runtime.runtime_backend,
+                artifact_path=str(runtime.artifact_path) if runtime.artifact_path else None,
                 api_version=self.settings.app_version,
             ),
             available_checkpoints=self._available_checkpoints(),
@@ -409,6 +448,18 @@ class InferenceService:
             sum(stage.duration_ms for stage in response.pipeline.stages)
         )
         response.runtime.latency_ms = response.pipeline.total_duration_ms
+        LOGGER.info(
+            "Inference complete request_id=%s backend=%s checkpoint=%s "
+            "input=%sx%s output=%sx%s latency_ms=%.2f",
+            request_id,
+            runtime.runtime_backend if runtime else method_name,
+            runtime.name if runtime else "baseline",
+            input_image.width,
+            input_image.height,
+            output_image.width,
+            output_image.height,
+            response.runtime.latency_ms,
+        )
         return response
 
     def batch_super_resolve(

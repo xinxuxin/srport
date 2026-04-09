@@ -48,7 +48,7 @@ The current demo is designed to feel like a solution engineering artifact rather
 
 ## Important Reproduction Note
 
-The default `demo_x4.pt` checkpoint is a demo bootstrap artifact, not a fully paper-trained benchmark checkpoint. The repository is runnable end to end, but if you want stronger visual quality for a formal benchmark or interview demo, train a real checkpoint and place it in `checkpoints/`.
+The repository now prefers the trained deployment artifact at `outputs/run_x4_edge_default/inference.pt` when it exists. The older `checkpoints/demo_x4.pt` checkpoint is kept only as a bootstrap fallback for machines that have not run full training yet.
 
 Every paper ambiguity is documented in [docs/epnet_assumptions.md](/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md).
 
@@ -268,9 +268,16 @@ This script will:
 - create `.venv` if missing
 - install backend dependencies
 - install frontend dependencies
-- bootstrap `checkpoints/demo_x4.pt` if missing
+- prefer `outputs/run_x4_edge_default/inference.pt` for deployment when it exists
+- fall back to `checkpoints/demo_x4.pt` only when no trained deployment checkpoint is available
 - start FastAPI on `http://localhost:8000`
 - start Next.js on `http://localhost:3000`
+
+If your local ports are already occupied, override them without changing code:
+
+```bash
+EPNET_API_PORT=8011 EPNET_FRONTEND_PORT=3011 ./scripts/run_local.sh
+```
 
 ## API Summary
 
@@ -322,26 +329,38 @@ Each inference record stores:
 - estimated MACs/FLOPs
 - artifact URLs for replay
 
-## Checkpoints and Scale Switching
+## Checkpoints and Deployment Artifact Selection
 
-The backend automatically scans `checkpoints/*.pt`.
+By default, the backend now serves a single explicit deployment artifact:
 
-- Any discovered checkpoint becomes selectable in the frontend.
-- EPNet scale options depend on the loaded checkpoints.
-- Baseline methods remain available for x2/x3/x4 even if EPNet checkpoints do not exist for all scales.
+- primary default: `outputs/run_x4_edge_default/inference.pt`
+- fallback default: `checkpoints/demo_x4.pt`
 
-If you add multiple checkpoints such as:
+The deployment backend is explicit:
 
-- `checkpoints/demo_x2.pt`
-- `checkpoints/demo_x3.pt`
-- `checkpoints/demo_x4.pt`
-- `checkpoints/epnet_stage200k_x4.pt`
+- default runtime backend: `pytorch`
+- optional backend selector: `EPNET_INFERENCE_BACKEND=pytorch|onnx`
 
-the frontend checkpoint switcher will expose them automatically.
+To swap the deployed checkpoint:
+
+```bash
+EPNET_CHECKPOINT_PATH=/absolute/path/to/inference.pt ./scripts/run_local.sh
+```
+
+If you want the frontend checkpoint switcher to expose a directory of multiple `.pt` artifacts, point the backend at that directory explicitly:
+
+```bash
+EPNET_CHECKPOINT_DIR=/absolute/path/to/checkpoint_dir ./scripts/run_local.sh
+```
+
+If `EPNET_INFERENCE_BACKEND=onnx` is requested, the system expects a valid ONNX export and a working `onnxruntime` installation. The current deployment default remains PyTorch because it is the most robust path for the trained EPNet artifact.
 
 ## Environment Variables
 
 - `EPNET_CHECKPOINT_PATH`
+- `EPNET_CHECKPOINT_DIR`
+- `EPNET_INFERENCE_BACKEND`
+- `EPNET_ONNX_MODEL_PATH`
 - `EPNET_ANALYTICS_DB_PATH`
 - `EPNET_ARTIFACTS_DIR`
 - `EPNET_MAX_UPLOAD_BYTES`
@@ -350,6 +369,14 @@ the frontend checkpoint switcher will expose them automatically.
 - `EPNET_BUILD_TIME`
 - `EPNET_GIT_COMMIT`
 - `EPNET_PROFILE_INPUT_SIZE`
+
+Useful script-level overrides:
+
+- `EPNET_API_HOST`
+- `EPNET_API_PORT`
+- `EPNET_FRONTEND_HOST`
+- `EPNET_FRONTEND_PORT`
+- `EPNET_API_RELOAD`
 
 ## Docker
 
