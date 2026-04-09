@@ -1,3 +1,10 @@
+"""FastAPI route definitions for the EPNet deployment service.
+
+This is the main HTTP surface of the deployed system. The routes here are thin
+wrappers around ``InferenceService`` and ``AnalyticsService`` so the important
+runtime logic stays testable in plain Python classes.
+"""
+
 from __future__ import annotations
 
 from typing import Annotated, Optional
@@ -24,18 +31,22 @@ def build_router(
     inference_service: InferenceService,
     analytics_service: AnalyticsService,
 ) -> APIRouter:
+    """Build the API router bound to the active inference and analytics services."""
     router = APIRouter()
     settings = inference_service.settings
 
     @router.get("/health")
     def health() -> dict[str, str]:
+        """Minimal liveness endpoint for local demos and container health checks."""
         return {"status": "ok"}
 
     @router.get("/model/info", response_model=ModelInfoResponse)
     def model_info(checkpoint_name: Optional[str] = Query(default=None)) -> ModelInfoResponse:
+        """Return deployment metadata and lightweight model profiling data."""
         return inference_service.model_info(checkpoint_name=checkpoint_name)
 
     async def _validate_upload(file: UploadFile) -> tuple[bytes, str]:
+        """Enforce the repository's demo-time upload constraints before inference."""
         if not file.content_type or file.content_type not in ALLOWED_IMAGE_TYPES:
             raise HTTPException(status_code=400, detail="Only image uploads are supported.")
         image_bytes = await file.read()
@@ -59,6 +70,7 @@ def build_router(
         tile_size: int = 0,
         checkpoint_name: Optional[str] = None,
     ) -> InferenceResponse:
+        """Shared single-image inference handler used by the route aliases."""
         image_bytes, format_name = await _validate_upload(file)
         try:
             return inference_service.super_resolve(
@@ -84,6 +96,7 @@ def build_router(
         tile_size: Annotated[int, Form()] = 0,
         checkpoint_name: Annotated[Optional[str], Form()] = None,
     ) -> InferenceResponse:
+        """Backward-compatible alias retained from earlier versions of the demo."""
         return await _run_inference(
             file,
             session_id=session_id,
@@ -104,6 +117,7 @@ def build_router(
         tile_size: Annotated[int, Form()] = 0,
         checkpoint_name: Annotated[Optional[str], Form()] = None,
     ) -> InferenceResponse:
+        """Primary single-image inference route used by the frontend."""
         return await _run_inference(
             file,
             session_id=session_id,
@@ -124,6 +138,7 @@ def build_router(
         tile_size: Annotated[int, Form()] = 0,
         checkpoint_name: Annotated[Optional[str], Form()] = None,
     ) -> BatchInferenceResponse:
+        """Batch inference route used for demo queue mode and aggregate stats."""
         if not files:
             raise HTTPException(status_code=400, detail="At least one file is required.")
 
@@ -146,18 +161,22 @@ def build_router(
 
     @router.get("/analytics/summary", response_model=AnalyticsSummaryResponse)
     def analytics_summary() -> AnalyticsSummaryResponse:
+        """Backward-compatible analytics alias."""
         return analytics_service.summary()
 
     @router.get("/usage/summary", response_model=AnalyticsSummaryResponse)
     def usage_summary() -> AnalyticsSummaryResponse:
+        """Return dashboard summary metrics over logged inference events."""
         return analytics_service.summary()
 
     @router.get("/usage/recent", response_model=RecentEventsResponse)
     def usage_recent(limit: int = Query(default=10, ge=1, le=50)) -> RecentEventsResponse:
+        """Return the most recent inference events for replay cards."""
         return analytics_service.recent(limit=limit)
 
     @router.get("/history/{request_id}", response_model=HistoryEventResponse)
     def history_event(request_id: str) -> HistoryEventResponse:
+        """Replay one historical request by its request ID."""
         event = analytics_service.history_event(request_id)
         if event is None:
             raise HTTPException(status_code=404, detail="History record was not found.")

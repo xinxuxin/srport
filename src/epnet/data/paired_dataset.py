@@ -1,3 +1,11 @@
+"""Training and evaluation datasets that pair LR and HR images.
+
+The repository trains from HR images and synthesizes LR inputs on the fly using
+bicubic downsampling. That keeps the training path reproducible and makes the LR
+generation strategy explicit in code instead of relying on hidden preprocessed
+artifacts.
+"""
+
 from __future__ import annotations
 
 import random
@@ -11,6 +19,8 @@ from .transforms import list_images, load_image, pil_to_tensor, resize_bicubic
 
 
 class TrainImageFolderDataset(Dataset[tuple[Tensor, Tensor]]):
+    """Patch-based training dataset backed by a folder of HR images."""
+
     def __init__(
         self,
         image_dir: Path,
@@ -29,6 +39,7 @@ class TrainImageFolderDataset(Dataset[tuple[Tensor, Tensor]]):
         return len(self.images) * self.repeat
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
+        """Return a bicubic LR patch and its HR supervision target."""
         image = load_image(self.images[index % len(self.images)])
         hr_patch = self._random_crop(image)
         lr_size = (hr_patch.width // self.scale, hr_patch.height // self.scale)
@@ -36,6 +47,7 @@ class TrainImageFolderDataset(Dataset[tuple[Tensor, Tensor]]):
         return pil_to_tensor(lr_patch), pil_to_tensor(hr_patch)
 
     def _random_crop(self, image: Image.Image) -> Image.Image:
+        """Sample a square HR crop, resizing tiny images upward if necessary."""
         crop_size = self.patch_size
         if image.width < crop_size or image.height < crop_size:
             new_width = max(crop_size, image.width)
@@ -50,6 +62,8 @@ class TrainImageFolderDataset(Dataset[tuple[Tensor, Tensor]]):
 
 
 class PairedSuperResolutionDataset(Dataset[tuple[str, Tensor, Tensor]]):
+    """Evaluation dataset that returns image name, LR tensor, and HR tensor."""
+
     def __init__(self, hr_paths: list[Path], scale: int) -> None:
         if not hr_paths:
             raise ValueError("PairedSuperResolutionDataset requires at least one HR image.")
@@ -60,6 +74,7 @@ class PairedSuperResolutionDataset(Dataset[tuple[str, Tensor, Tensor]]):
         return len(self.hr_paths)
 
     def __getitem__(self, index: int) -> tuple[str, Tensor, Tensor]:
+        """Apply mod-crop and bicubic downsampling to form a deterministic pair."""
         path = self.hr_paths[index]
         hr = load_image(path)
         width = hr.width - (hr.width % self.scale)

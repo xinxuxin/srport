@@ -1,7 +1,10 @@
+# Real-data x2 local training schedule with resumable checkpoints.
 scale: 2
+# HR crop size; the LR crop is patch_size / scale.
 patch_size: 48
 batch_size: 8
 total_steps: 50000
+# Save periodic checkpoints so resume and ablation inspection stay easy.
 save_every: 1000
 log_every: 50
 num_workers: 2
@@ -9,9 +12,11 @@ seed: 42
 device: auto
 amp: "auto"
 channels_last: true
+# Validation is periodic and intentionally bounded for local practicality.
 val_every: 1000
 max_validation_images: 8
 checkpoint_history: 2
+# Output directory name under outputs/.
 run_name: run_x2_edge_default
 output_root: outputs
 auto_resume: true

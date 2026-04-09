@@ -1,3 +1,10 @@
+"""Dataset path helpers for DIV2K and benchmark evaluation sets.
+
+This file captures the repository's directory conventions for real-data
+training. It is intentionally simple, because keeping all path rules in one
+place makes the training workflow easier to explain and validate.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,6 +15,8 @@ SUPPORTED_BENCHMARKS = ("Set5", "Set14", "BSD100", "Urban100", "Manga109")
 
 @dataclass(frozen=True)
 class DatasetPaths:
+    """Canonical local directory layout for real-data training and evaluation."""
+
     root: Path
     raw_root: Path
     processed_root: Path
@@ -17,6 +26,7 @@ class DatasetPaths:
 
 
 def build_dataset_paths(dataset_root: Path) -> DatasetPaths:
+    """Expand the configured dataset root into the repository's expected layout."""
     raw_root = dataset_root / "raw"
     processed_root = dataset_root / "processed"
     benchmarks_root = dataset_root / "benchmarks"
@@ -32,6 +42,7 @@ def build_dataset_paths(dataset_root: Path) -> DatasetPaths:
 
 
 def benchmark_hr_dir(dataset_root: Path, name: str) -> Path:
+    """Return the HR directory for a supported benchmark dataset."""
     if name not in SUPPORTED_BENCHMARKS:
         expected = ", ".join(SUPPORTED_BENCHMARKS)
         raise ValueError(f"Unsupported benchmark '{name}'. Expected one of: {expected}.")
@@ -39,6 +50,7 @@ def benchmark_hr_dir(dataset_root: Path, name: str) -> Path:
 
 
 def validate_real_data_paths(dataset_root: Path) -> dict[str, Path]:
+    """Validate the minimum required real-data directories for full training."""
     paths = build_dataset_paths(dataset_root)
     required = {
         "div2k_train_hr": paths.div2k_train_hr,

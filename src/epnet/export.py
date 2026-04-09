@@ -1,3 +1,11 @@
+"""ONNX export helper for deployment-oriented EPNet artifacts.
+
+This file does not define the deployment runtime itself. Instead, it provides a
+repeatable way to test whether a trained checkpoint can be exported into an
+interchange format that may later be consumed by edge runtimes such as
+ONNXRuntime.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -17,6 +25,14 @@ def export_onnx(
     *,
     device: str = "cpu",
 ) -> dict[str, Any]:
+    """Export a checkpoint to ONNX and return a structured result payload.
+
+    Implementation notes:
+        - The function uses the repository's profile input shape as a stable
+          export example tensor.
+        - Dynamic height/width axes are requested, but actual downstream runtime
+          compatibility still depends on the exported operator set.
+    """
     device_context = build_device_context(device, amp_mode="off", channels_last=True)
     checkpoint = load_checkpoint(checkpoint_path, map_location=device_context.device)
     model = load_model_from_checkpoint(checkpoint).to(device_context.device)
@@ -33,6 +49,8 @@ def export_onnx(
 
     ensure_dir(output_path.parent)
     try:
+        # Export is wrapped in a broad ``try`` so the training and profiling
+        # pipelines can record an actionable failure instead of crashing.
         torch.onnx.export(
             model,
             (dummy,),
@@ -57,6 +75,7 @@ def export_onnx(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser used by ``epnet-export``."""
     parser = argparse.ArgumentParser(description="Export EPNet checkpoint to ONNX.")
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -70,6 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """Command-line entry point for ONNX export."""
     args = build_parser().parse_args()
     print(json.dumps(export_onnx(args.checkpoint, args.output, device=args.device), indent=2))
 

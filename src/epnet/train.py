@@ -1,3 +1,19 @@
+"""Training entry point for EPNet research and product checkpoints.
+
+This file is the main bridge between the paper-inspired architecture and the
+real training artifacts used elsewhere in the repository. It supports:
+
+- synthetic smoke training for regression checks
+- real-data training on DIV2K-style datasets
+- resume from checkpoints
+- EMA tracking
+- validation during training
+- export of an inference-specific checkpoint for deployment
+
+It is one of the most important files to understand if you want to explain how
+the repo moves from model definition to reproducible training outputs.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -51,6 +67,7 @@ from .utils import (
 
 
 def _cycle(loader: Iterable[tuple[Tensor, Tensor]]) -> Iterator[tuple[Tensor, Tensor]]:
+    """Yield batches forever so the training loop can count by steps, not epochs."""
     while True:
         yield from loader
 
@@ -88,6 +105,12 @@ def save_checkpoint(
     device_type: str,
     validation_metrics: dict[str, float] | None = None,
 ) -> None:
+    """Serialize a resumable training checkpoint.
+
+    The saved payload intentionally includes optimizer state, EMA weights,
+    scaler state, and validation metadata so a long real-data run can resume
+    without losing training context.
+    """
     ensure_dir(path.parent)
     torch.save(
         {
@@ -116,6 +139,12 @@ def export_inference_checkpoint(
     *,
     best_psnr: float | None,
 ) -> Path:
+    """Export the EMA-smoothed weights as the deployment-oriented artifact.
+
+    The repository uses the EMA snapshot for inference because it is generally
+    more stable than the raw last-step weights, especially for presentation and
+    deployment demos.
+    """
     inference_path = _inference_checkpoint_path(output_path)
     ensure_dir(inference_path.parent)
     torch.save(
@@ -140,6 +169,7 @@ def _make_loader(
     *,
     shuffle: bool,
 ) -> DataLoader[tuple[Tensor, Tensor]]:
+    """Create a dataloader with conservative defaults across CPU, MPS, and CUDA."""
     if train_config.num_workers > 0:
         return DataLoader(
             dataset,
@@ -166,6 +196,7 @@ def _prepare_batch(
     hr_batch: Tensor,
     device_context: Any,
 ) -> tuple[Tensor, Tensor]:
+    """Move a low-resolution / high-resolution pair onto the runtime device."""
     memory_format = model_memory_format(device_context)
     lr = lr_batch.to(
         device_context.device,
@@ -179,6 +210,7 @@ def _prepare_batch(
 
 
 def _retain_checkpoint_history(output_path: Path, keep: int) -> None:
+    """Delete older snapshot checkpoints while keeping the newest ``keep`` files."""
     if keep <= 0:
         return
     if output_path.stem == "latest":
@@ -191,6 +223,7 @@ def _retain_checkpoint_history(output_path: Path, keep: int) -> None:
 
 
 def _checkpoint_step_sort_key(path: Path) -> int:
+    """Extract the numeric training step from a snapshot checkpoint filename."""
     match = re.search(r"step(\d+)", path.stem)
     return int(match.group(1)) if match else -1
 
@@ -203,6 +236,12 @@ def validate(
     *,
     max_images: int = 8,
 ) -> dict[str, float]:
+    """Run a lightweight validation pass on a subset of HR images.
+
+    Validation reuses the same SR metric implementation used by the standalone
+    evaluation path. The ``max_images`` cap keeps frequent in-training
+    validation affordable on local machines.
+    """
     dataset = EvaluationImageDataset(hr_dir, scale)
     results: list[dict[str, float]] = []
     model.eval()
@@ -225,6 +264,7 @@ def validate(
 
 
 def _compile_if_requested(model: EPNet, train_config: TrainConfig) -> EPNet:
+    """Optionally wrap the model with ``torch.compile`` when requested."""
     if not train_config.compile_model or not hasattr(torch, "compile"):
         return model
     return torch.compile(model)  # type: ignore[return-value]
@@ -240,6 +280,22 @@ def train(
     val_dir: Path | None = None,
     train_log_path: Path | None = None,
 ) -> Path:
+    """Train EPNet from either a real-data directory or a synthetic dataset.
+
+    Args:
+        train_dir: High-resolution training image directory. ``None`` switches
+            the function into synthetic smoke-training mode.
+        output_path: Path of the latest resumable checkpoint.
+        model_config: Architecture configuration for EPNet.
+        train_config: Runtime and optimization settings.
+        synthetic_count: Optional override for synthetic dataset size.
+        resume_path: Existing checkpoint to resume from.
+        val_dir: Optional validation directory for PSNR/SSIM checks.
+        train_log_path: Optional JSONL file for machine-readable logging.
+
+    Returns:
+        The latest checkpoint path that was written.
+    """
     if train_config.scale != model_config.upscale:
         raise ValueError(
             "TrainConfig.scale "
@@ -258,6 +314,8 @@ def train(
     if device_context.channels_last:
         model = model.to(memory_format=torch.channels_last)  # type: ignore[call-overload]
     ema = ExponentialMovingAverage(model, train_config.ema_decay)
+    # ``training_model`` may be compiled, but ``model`` remains the canonical
+    # object for checkpointing, EMA updates, and deployment export.
     training_model = _compile_if_requested(model, train_config)
 
     optimizer = Adam(
@@ -272,6 +330,8 @@ def train(
     best_psnr: float | None = None
 
     if resume_path is not None:
+        # Resume logic restores not only weights, but optimizer momentum, EMA,
+        # AMP scaler state, and the best-validation marker used for best.pt.
         checkpoint = load_checkpoint(resume_path, map_location=device_context.device)
         raw_model_config = checkpoint.get("model_config", {})
         if isinstance(raw_model_config, dict):
@@ -303,6 +363,8 @@ def train(
             best_psnr = float(checkpoint_best_psnr)
 
     if train_dir is not None:
+        # Real-data mode expects a directory of HR images and synthesizes LR
+        # patches on the fly by bicubic downsampling.
         dataset: Dataset[tuple[Tensor, Tensor]] = TrainImageFolderDataset(
             train_dir,
             train_config.patch_size,
@@ -328,6 +390,11 @@ def train(
         lr_batch, hr_batch = next(batches)
         lr_batch, hr_batch = _prepare_batch(lr_batch, hr_batch, device_context)
 
+        # Each step follows the standard supervised SR recipe:
+        # 1. predict HR from LR
+        # 2. compare against the HR target with L1 loss
+        # 3. update weights
+        # 4. update EMA shadow weights
         optimizer.zero_grad(set_to_none=True)
         with autocast_context(device_context):
             prediction = training_model(lr_batch)
@@ -366,6 +433,8 @@ def train(
         )
         if run_validation:
             assert val_dir is not None
+            # Validation uses the EMA weights because those are the weights that
+            # will later be exported for inference and deployment.
             last_validation_metrics = validate(
                 ema.shadow,
                 val_dir,
@@ -400,6 +469,9 @@ def train(
                 )
 
         if step % train_config.save_every == 0 or step == train_config.total_steps:
+            # Two checkpoint forms are maintained:
+            # - latest.pt for resume
+            # - stepXXXX.pt snapshots for debugging and retrospective analysis
             save_checkpoint(
                 output_path,
                 model,
@@ -431,6 +503,8 @@ def train(
             )
             _retain_checkpoint_history(output_path, train_config.checkpoint_history)
 
+    # Training ends by exporting the EMA-smoothed inference artifact used by the
+    # deployment stack. This decouples runtime inference from training-only data.
     inference_path = export_inference_checkpoint(
         output_path,
         model_config,
@@ -452,6 +526,7 @@ def train(
 
 
 def _prepare_synthetic_eval_dir(data_config: DataConfig) -> Path:
+    """Create a deterministic synthetic validation directory for smoke runs."""
     eval_dir = Path(data_config.processed_root) / f"synthetic_eval_x{data_config.scale}"
     ensure_dir(eval_dir)
     for index in range(data_config.synthetic_eval_count):
@@ -470,6 +545,12 @@ def run_training_from_configs(
     *,
     explicit_resume: Path | None = None,
 ) -> Path:
+    """Run the config-driven training workflow used by the main research path.
+
+    This is the preferred high-level entry point for full local training because
+    it snapshots configs, writes a manifest, trains, evaluates, profiles, and
+    exports ONNX in one coherent run directory.
+    """
     if model_config.upscale != data_config.scale or model_config.upscale != train_config.scale:
         raise ValueError("Model, data, and train scale must match.")
 
@@ -484,6 +565,8 @@ def run_training_from_configs(
     latest_checkpoint = run_dir / "latest.pt"
     resume_path = explicit_resume
     if resume_path is None and train_config.auto_resume and latest_checkpoint.exists():
+        # Auto-resume is critical for long local x4 runs on laptops and desktop
+        # workstations where training may be paused between sessions.
         resume_path = latest_checkpoint
 
     if data_config.dataset_type == "synthetic":
@@ -536,6 +619,8 @@ def run_training_from_configs(
     from .evaluate import evaluate_run
     from .profile import profile_checkpoint
 
+    # After training, evaluation and profiling run automatically so every full
+    # run directory already contains presentation-ready artifacts.
     datasets = build_validation_datasets(data_config, train_config.scale)
     eval_summary = evaluate_run(
         checkpoint_path=run_dir / "inference.pt",
@@ -556,6 +641,7 @@ def run_training_from_configs(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for both config-driven and legacy training modes."""
     parser = argparse.ArgumentParser(description="Train EPNet for single-image super-resolution.")
     parser.add_argument("--model-config", type=Path, default=None)
     parser.add_argument("--data-config", type=Path, default=None)
@@ -604,6 +690,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _run_legacy_cli(args: argparse.Namespace) -> None:
+    """Support the older argument-heavy training interface for compatibility."""
     if args.output is None:
         raise ValueError("--output is required when config files are not provided.")
 
@@ -647,6 +734,7 @@ def _run_legacy_cli(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    """Entry point for ``python -m epnet.train`` and ``epnet-train``."""
     parser = build_parser()
     args = parser.parse_args()
 

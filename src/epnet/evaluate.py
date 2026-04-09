@@ -1,3 +1,11 @@
+"""Evaluation entry point for EPNet checkpoints.
+
+This module is responsible for turning a trained checkpoint into benchmark
+numbers. It reuses the same metric implementation as training-time validation,
+but organizes the results either for a single HR directory or for the full
+multi-dataset benchmark bundle used by the real-data workflow.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -22,6 +30,7 @@ def _evaluate_dataset(
     *,
     device: str,
 ) -> dict[str, Any]:
+    """Evaluate one dataset object with a single loaded EPNet checkpoint."""
     device_context = build_device_context(device, amp_mode="off", channels_last=True)
     checkpoint = load_checkpoint(checkpoint_path, map_location=device_context.device)
     model = load_model_from_checkpoint(checkpoint).to(device_context.device)
@@ -36,6 +45,8 @@ def _evaluate_dataset(
     results = []
     with torch.inference_mode():
         for name, lr, hr in loader:
+            # Evaluation is always single-image and deterministic: no random
+            # crops, no augmentation, and no gradient tracking.
             lr = lr.to(device_context.device)
             if device_context.channels_last:
                 lr = lr.contiguous(memory_format=model_memory_format(device_context))
@@ -57,6 +68,7 @@ def evaluate(
     *,
     device: str = "auto",
 ) -> dict[str, Any]:
+    """Evaluate a checkpoint against one directory of HR images."""
     dataset = EvaluationImageDataset(hr_dir, scale=_infer_scale(checkpoint_path))
     result = _evaluate_dataset(checkpoint_path, dataset, device=device)
     return {
@@ -70,6 +82,7 @@ def evaluate(
 
 
 def _infer_scale(checkpoint_path: Path) -> int:
+    """Recover the SR scale directly from the saved model configuration."""
     checkpoint = load_checkpoint(checkpoint_path, map_location="cpu")
     raw_config = checkpoint.get("model_config", {})
     if isinstance(raw_config, dict):
@@ -85,6 +98,7 @@ def evaluate_run(
     output_json: Path | None = None,
     output_markdown: Path | None = None,
 ) -> dict[str, Any]:
+    """Evaluate one checkpoint across the repository's benchmark dataset bundle."""
     dataset_results = {
         name: _evaluate_dataset(checkpoint_path, dataset, device=device)
         for name, dataset in datasets.items()
@@ -113,6 +127,7 @@ def evaluate_run(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser used by ``epnet-eval``."""
     parser = argparse.ArgumentParser(description="Evaluate EPNet on one or more datasets.")
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--hr-dir", type=Path, default=None)
@@ -129,6 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """Command-line entry point for benchmark evaluation."""
     args = build_parser().parse_args()
     if args.data_config is not None:
         data_config: DataConfig = load_data_config(args.data_config)

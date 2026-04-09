@@ -1,3 +1,10 @@
+"""Convenience exports for the EPNet data pipeline.
+
+The training and evaluation code imports from this package-level module when it
+needs the common image transforms, dataset builders, or benchmark helpers
+without depending on the concrete submodule layout.
+"""
+
 from .benchmark import EvaluationImageDataset
 from .datamodule import build_train_dataset, build_validation_datasets
 from .div2k import (

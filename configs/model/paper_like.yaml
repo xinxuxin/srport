@@ -1,2 +1,3 @@
+# Paper-grounded baseline preset kept for comparison, not default deployment.
 preset: paper_like
 upscale: 4

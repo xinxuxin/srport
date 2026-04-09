@@ -1,3 +1,10 @@
+"""FastAPI application assembly for the EPNet deployment system.
+
+This file is intentionally small: it wires together settings, storage,
+analytics, inference services, and route registration so the actual deployment
+behavior remains easy to trace from one place.
+"""
+
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -12,7 +19,10 @@ from .services.inference import InferenceService
 
 
 def create_app() -> FastAPI:
+    """Create the fully wired FastAPI application used in local and docker runs."""
     settings = Settings.from_env()
+    # Generated artifacts are served back to the frontend, so the directory
+    # must exist before StaticFiles is mounted.
     settings.artifacts_dir.mkdir(parents=True, exist_ok=True)
     database = Database(settings.analytics_db_path)
     analytics_service = AnalyticsService(database)

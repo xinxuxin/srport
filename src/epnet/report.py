@@ -1,3 +1,10 @@
+"""Small report renderers for evaluation and profiling outputs.
+
+These helpers keep Markdown generation close to the underlying payloads so each
+training run can emit lightweight, human-readable summaries without pulling in a
+heavier reporting framework.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,6 +14,7 @@ from .utils import ensure_dir, write_json
 
 
 def render_eval_markdown(summary: dict[str, Any]) -> str:
+    """Render the multi-dataset evaluation payload into Markdown."""
     lines = [
         "# EPNet Evaluation Report",
         "",
@@ -36,6 +44,7 @@ def render_eval_markdown(summary: dict[str, Any]) -> str:
 
 
 def render_profile_markdown(profile: dict[str, Any]) -> str:
+    """Render the profiling payload into Markdown."""
     lines = [
         "# EPNet Profile Report",
         "",
@@ -60,6 +69,7 @@ def write_report_bundle(
     output_markdown: Path | None,
     renderer: Callable[[dict[str, Any]], str],
 ) -> None:
+    """Write a JSON payload and an optional Markdown companion report."""
     if output_json is not None:
         ensure_dir(output_json.parent)
         write_json(output_json, payload)

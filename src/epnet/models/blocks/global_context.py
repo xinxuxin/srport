@@ -1,3 +1,13 @@
+"""Global-context blocks used inside PFEM.
+
+The paper references a modified Swin Transformer in PFEM. This repository keeps
+that idea in a modular form so the same PFEM scaffold can host:
+
+- ``swin``: the default paper-like global context path
+- ``lightweight_conv_context``: a cheaper deployment-oriented alternative
+- ``none``: an ablation path for removing explicit global context
+"""
+
 from __future__ import annotations
 
 import torch
@@ -6,6 +16,7 @@ from torch import Tensor, nn
 
 
 def window_partition(x: Tensor, window_size: int) -> Tensor:
+    """Convert ``[B, H, W, C]`` features into a batch of flattened windows."""
     batch, height, width, channels = x.shape
     x = x.view(
         batch,
@@ -20,6 +31,7 @@ def window_partition(x: Tensor, window_size: int) -> Tensor:
 
 
 def window_reverse(windows: Tensor, window_size: int, height: int, width: int) -> Tensor:
+    """Reassemble flattened windows back into a ``[B, H, W, C]`` tensor."""
     batch = int(windows.shape[0] / ((height // window_size) * (width // window_size)))
     x = windows.view(
         batch,
@@ -34,6 +46,8 @@ def window_reverse(windows: Tensor, window_size: int, height: int, width: int) -
 
 
 class Mlp(nn.Module):
+    """Feed-forward block used inside the Swin-style transformer stage."""
+
     def __init__(self, channels: int, hidden_channels: int) -> None:
         super().__init__()
         self.fc1 = nn.Linear(channels, hidden_channels)
@@ -45,6 +59,8 @@ class Mlp(nn.Module):
 
 
 class WindowAttention(nn.Module):
+    """Windowed self-attention with learned relative position bias."""
+
     def __init__(self, channels: int, num_heads: int, window_size: int) -> None:
         super().__init__()
         if channels % num_heads != 0:
@@ -70,6 +86,7 @@ class WindowAttention(nn.Module):
         self.register_buffer("relative_position_index", relative_position_index)
 
     def forward(self, x: Tensor) -> Tensor:
+        """Apply self-attention independently within each window."""
         batch_windows, tokens, channels = x.shape
         qkv = (
             self.qkv(x)
@@ -92,6 +109,13 @@ class WindowAttention(nn.Module):
 
 
 class SwinBlock(nn.Module):
+    """Single Swin-style block with optional shifted windows.
+
+    Shape notes:
+        Input and output use ``[B, C, H, W]``. Temporary padding is applied when
+        ``H`` or ``W`` is not divisible by ``window_size``.
+    """
+
     def __init__(
         self,
         channels: int,
@@ -111,6 +135,8 @@ class SwinBlock(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         batch, channels, height, width = x.shape
+        # Windowed attention requires divisible spatial dimensions, so the block
+        # pads reflectively and then crops back to the original size afterward.
         pad_h = (self.window_size - height % self.window_size) % self.window_size
         pad_w = (self.window_size - width % self.window_size) % self.window_size
         if pad_h or pad_w:
@@ -121,6 +147,8 @@ class SwinBlock(nn.Module):
         residual = features
 
         if self.shift_size:
+            # Shifted windows let neighboring windows exchange information
+            # without building full-image attention.
             shifted = torch.roll(features, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
         else:
             shifted = features
@@ -147,6 +175,8 @@ class SwinBlock(nn.Module):
 
 
 class ModifiedSwinTransformer(nn.Module):
+    """Two-block Swin-style context module used by default inside PFEM."""
+
     def __init__(self, channels: int, num_heads: int, window_size: int, mlp_ratio: float) -> None:
         super().__init__()
         self.blocks = nn.Sequential(
@@ -159,6 +189,8 @@ class ModifiedSwinTransformer(nn.Module):
 
 
 class LightweightConvContext(nn.Module):
+    """Cheaper global-context approximation for edge-oriented experiments."""
+
     def __init__(self, channels: int) -> None:
         super().__init__()
         self.context = nn.Sequential(
@@ -172,6 +204,8 @@ class LightweightConvContext(nn.Module):
 
 
 class IdentityContext(nn.Module):
+    """A no-op context block used for ablations."""
+
     def forward(self, x: Tensor) -> Tensor:
         return x
 
@@ -183,6 +217,7 @@ def build_global_context(
     window_size: int,
     mlp_ratio: float,
 ) -> nn.Module:
+    """Factory for selecting the PFEM global-context implementation."""
     if kind == "swin":
         return ModifiedSwinTransformer(channels, num_heads, window_size, mlp_ratio)
     if kind == "lightweight_conv_context":

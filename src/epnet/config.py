@@ -1,3 +1,20 @@
+"""Configuration dataclasses and YAML loaders for EPNet training/inference.
+
+This module is shared by the research-facing training pipeline and the
+deployment-facing checkpoint export/evaluation path. It centralizes the small
+set of configuration objects that define:
+
+- which EPNet preset to instantiate
+- which dataset family to read
+- which training schedule to run
+- which inference-time safeguards to apply
+
+The paper provides high-level defaults such as scale, patch size, and optimizer
+settings, but it does not define a product-ready configuration system. The
+dataclasses here are therefore an engineering layer that turns the paper ideas
+into reproducible, typed, and validated runtime settings.
+"""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, replace
@@ -50,6 +67,23 @@ MODEL_PRESETS: dict[str, dict[str, Any]] = {
 
 @dataclass(frozen=True)
 class ModelConfig:
+    """Typed description of the EPNet architecture used for one run.
+
+    Summary:
+        Captures the high-level network shape, including the upscale factor,
+        channel width, PFEM depth, ESPM depth, and global-context block type.
+
+    Paper mapping:
+        This config corresponds to the architectural degrees of freedom around
+        the paper's shallow stem, PFEM stages, ESPM branch, and reconstruction
+        head.
+
+    Role in the system:
+        The training loop, evaluation path, profiling code, and deployment
+        artifact loader all rely on this config to rebuild the same EPNet
+        instance from a checkpoint.
+    """
+
     upscale: int = 4
     in_channels: int = 3
     embed_dim: int = 40
@@ -64,6 +98,7 @@ class ModelConfig:
     variant: str = "edge_default"
 
     def __post_init__(self) -> None:
+        """Validate core architectural invariants before model construction."""
         if self.upscale not in {2, 3, 4}:
             raise ValueError("upscale must be one of: 2, 3, 4.")
         if self.in_channels <= 0:
@@ -90,11 +125,24 @@ class ModelConfig:
             )
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a JSON/YAML-friendly representation used in manifests."""
         return asdict(self)
 
 
 @dataclass(frozen=True)
 class DataConfig:
+    """Dataset configuration for either real-data or synthetic workflows.
+
+    Summary:
+        Describes where HR images live, where bicubic LR caches are written,
+        which benchmark datasets should be evaluated, and how synthetic smoke
+        data should be generated when the repository runs in regression mode.
+
+    Role in the system:
+        The data module uses this config to decide whether it should build the
+        real DIV2K training path or the synthetic smoke path.
+    """
+
     dataset_type: str = "div2k"
     dataset_root: str = "data"
     train_hr_dir: str = "data/raw/DIV2K/DIV2K_train_HR"
@@ -114,6 +162,7 @@ class DataConfig:
     synthetic_image_size: int = 96
 
     def __post_init__(self) -> None:
+        """Validate dataset family and key size/count assumptions."""
         if self.dataset_type not in {"div2k", "synthetic"}:
             raise ValueError("dataset_type must be one of: div2k, synthetic.")
         if self.scale not in {2, 3, 4}:
@@ -126,11 +175,29 @@ class DataConfig:
             raise ValueError("synthetic_image_size must be positive.")
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a serializable snapshot for manifests and debug output."""
         return asdict(self)
 
 
 @dataclass(frozen=True)
 class TrainConfig:
+    """Training schedule and runtime policy for one experiment run.
+
+    Summary:
+        Encodes optimizer hyperparameters, checkpoint cadence, validation
+        cadence, device/AMP policy, and output directory naming.
+
+    Paper mapping:
+        Fields such as ``patch_size``, ``batch_size``, ``learning_rate``, and
+        ``ema_decay`` are the code-level representation of the paper's reported
+        training defaults.
+
+    Implementation notes:
+        This config also carries product-oriented choices that are not part of
+        the paper itself, such as auto-resume, checkpoint history retention,
+        and manifest generation.
+    """
+
     scale: int = 4
     patch_size: int = 48
     batch_size: int = 32
@@ -159,6 +226,7 @@ class TrainConfig:
     manifest_command: str = ""
 
     def __post_init__(self) -> None:
+        """Reject invalid schedules early so runs fail before allocating data."""
         if self.scale not in {2, 3, 4}:
             raise ValueError("scale must be one of: 2, 3, 4.")
         if self.patch_size <= 0:
@@ -193,28 +261,40 @@ class TrainConfig:
             raise ValueError("amp must be one of: auto, on, off.")
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a manifest-friendly representation."""
         return asdict(self)
 
     def replace(self, **changes: Any) -> TrainConfig:
+        """Create a modified copy without mutating the frozen dataclass."""
         return replace(self, **changes)
 
 
 @dataclass(frozen=True)
 class InferenceConfig:
+    """Lightweight runtime options for direct checkpoint inference utilities."""
+
     device: str = "cpu"
     clamp_output: bool = True
     tile_size: int = 0
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a manifest/debug representation."""
         return asdict(self)
 
 
 def normalize_model_preset(name: str) -> str:
+    """Map legacy preset aliases onto the current naming scheme."""
     normalized = name.lower()
     return LEGACY_PRESET_ALIASES.get(normalized, normalized)
 
 
 def model_config_from_variant(variant: str = "edge_default", **overrides: Any) -> ModelConfig:
+    """Build a :class:`ModelConfig` from a named preset plus explicit overrides.
+
+    This helper is the bridge between human-friendly preset names such as
+    ``edge_default`` and the fully expanded dataclass consumed by the model
+    registry.
+    """
     normalized = normalize_model_preset(variant)
     if normalized not in MODEL_PRESETS:
         expected = ", ".join(sorted(MODEL_PRESETS))
@@ -225,6 +305,7 @@ def model_config_from_variant(variant: str = "edge_default", **overrides: Any) -
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
+    """Load a YAML config file and require the top level to be a mapping."""
     with path.open("r", encoding="utf-8") as handle:
         payload = yaml.safe_load(handle) or {}
     if not isinstance(payload, dict):
@@ -233,14 +314,17 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 
 
 def load_model_config(path: Path) -> ModelConfig:
+    """Load a model config YAML and expand its ``preset`` into full values."""
     payload = _load_yaml(path)
     preset = payload.pop("preset", payload.pop("variant", "edge_default"))
     return model_config_from_variant(str(preset), **payload)
 
 
 def load_data_config(path: Path) -> DataConfig:
+    """Load a data config YAML into a validated :class:`DataConfig`."""
     return DataConfig(**_load_yaml(path))
 
 
 def load_train_config(path: Path) -> TrainConfig:
+    """Load a training config YAML into a validated :class:`TrainConfig`."""
     return TrainConfig(**_load_yaml(path))

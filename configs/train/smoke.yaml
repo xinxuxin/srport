@@ -1,3 +1,4 @@
+# Minimal schedule for CI-friendly synthetic smoke testing.
 scale: 2
 patch_size: 48
 batch_size: 2
@@ -7,6 +8,7 @@ log_every: 1
 num_workers: 0
 seed: 42
 device: auto
+# Smoke runs disable AMP to simplify reproducibility.
 amp: "off"
 channels_last: true
 val_every: 2

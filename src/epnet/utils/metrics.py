@@ -1,3 +1,12 @@
+"""PSNR / SSIM metric utilities shared by validation and evaluation.
+
+The repository computes metrics in a paper-friendly way:
+
+- tensors are converted back to image space in ``[0, 255]``
+- an optional border shave removes scale-dependent edge effects
+- metrics default to the luminance (Y) channel, which is common in SR papers
+"""
+
 from __future__ import annotations
 
 import math
@@ -11,6 +20,7 @@ from torch import Tensor
 
 
 def _to_y_channel(array: NDArray[np.float32]) -> NDArray[np.float32]:
+    """Convert an RGB image array in ``[0, 255]`` to BT.601-style luminance."""
     if array.ndim != 3 or array.shape[2] != 3:
         raise ValueError("Expected RGB image")
     y = (
@@ -26,6 +36,7 @@ def _to_y_channel(array: NDArray[np.float32]) -> NDArray[np.float32]:
 
 
 def _gaussian_kernel(kernel_size: int = 11, sigma: float = 1.5) -> Tensor:
+    """Create the Gaussian kernel used by SSIM."""
     coords = torch.arange(kernel_size, dtype=torch.float32) - kernel_size // 2
     kernel = torch.exp(-(coords**2) / (2 * sigma**2))
     kernel = kernel / kernel.sum()
@@ -34,6 +45,7 @@ def _gaussian_kernel(kernel_size: int = 11, sigma: float = 1.5) -> Tensor:
 
 
 def _ssim_per_channel(pred: Tensor, target: Tensor, max_val: float = 255.0) -> Tensor:
+    """Compute SSIM on a single-channel tensor pair."""
     kernel = _gaussian_kernel().to(pred.device, dtype=pred.dtype)
     c1 = (0.01 * max_val) ** 2
     c2 = (0.03 * max_val) ** 2
@@ -55,11 +67,14 @@ def _ssim_per_channel(pred: Tensor, target: Tensor, max_val: float = 255.0) -> T
 
 @dataclass(frozen=True)
 class MetricResult:
+    """Container for the two SR metrics surfaced by this repository."""
+
     psnr: float
     ssim: float
 
 
 def calculate_psnr(prediction: NDArray[np.float32], target: NDArray[np.float32]) -> float:
+    """Compute PSNR from two image arrays in ``[0, 255]``."""
     mse = float(np.mean((prediction.astype(np.float64) - target.astype(np.float64)) ** 2))
     if mse == 0.0:
         return float("inf")
@@ -67,6 +82,7 @@ def calculate_psnr(prediction: NDArray[np.float32], target: NDArray[np.float32])
 
 
 def calculate_ssim(prediction: NDArray[np.float32], target: NDArray[np.float32]) -> float:
+    """Compute SSIM from two single-channel image arrays in ``[0, 255]``."""
     pred_tensor = torch.from_numpy(prediction).float().unsqueeze(0).unsqueeze(0)
     target_tensor = torch.from_numpy(target).float().unsqueeze(0).unsqueeze(0)
     return float(_ssim_per_channel(pred_tensor, target_tensor).item())
@@ -78,6 +94,15 @@ def evaluate_prediction(
     shave: int = 4,
     use_y_channel: bool = True,
 ) -> MetricResult:
+    """Evaluate one prediction tensor against its HR target.
+
+    Args:
+        prediction: Model output tensor in ``[C, H, W]`` with values expected in
+            the normalized ``[0, 1]`` range.
+        target: Reference HR tensor in the same format.
+        shave: Border crop applied before metrics to reduce edge artifacts.
+        use_y_channel: Whether to compute metrics on luminance only.
+    """
     pred = prediction.detach().cpu().clamp(0.0, 1.0).permute(1, 2, 0).numpy() * 255.0
     tgt = target.detach().cpu().clamp(0.0, 1.0).permute(1, 2, 0).numpy() * 255.0
 

@@ -1,7 +1,10 @@
+# Synthetic smoke config for fast regression tests, not benchmark claims.
 dataset_type: synthetic
 dataset_root: data
 processed_root: data/processed
 scale: 2
+# Number of synthetic training images generated deterministically for smoke runs.
 synthetic_count: 128
+# Small validation split used to verify loss/metric paths.
 synthetic_eval_count: 6
 synthetic_image_size: 96

@@ -1,3 +1,11 @@
+"""Runtime settings for the FastAPI deployment layer.
+
+This module belongs to the deployment side of the repository. It collects the
+environment variables that decide which trained artifact is served, which
+backend is used, where generated images are written, and which safety limits
+apply to uploaded images.
+"""
+
 from __future__ import annotations
 
 import os
@@ -8,18 +16,22 @@ from pathlib import Path
 
 
 def _repo_root() -> Path:
+    """Return the repository root so defaults stay stable across entrypoints."""
     return Path(__file__).resolve().parents[4]
 
 
 def _trained_run_dir() -> Path:
+    """Return the mainline real-data training run directory."""
     return _repo_root() / "outputs" / "run_x4_edge_default"
 
 
 def _default_build_time() -> str:
+    """Generate a fallback build timestamp when none was injected."""
     return datetime.now(timezone.utc).isoformat()
 
 
 def _detect_git_commit() -> str:
+    """Resolve the current git commit for deployment metadata panels."""
     env_commit = os.getenv("EPNET_GIT_COMMIT")
     if env_commit:
         return env_commit
@@ -37,6 +49,7 @@ def _detect_git_commit() -> str:
 
 
 def _default_checkpoint_path() -> Path:
+    """Prefer the trained inference artifact, then fall back to the demo weight."""
     trained_inference = _trained_run_dir() / "inference.pt"
     if trained_inference.exists():
         return trained_inference
@@ -44,6 +57,7 @@ def _default_checkpoint_path() -> Path:
 
 
 def _default_checkpoint_dir() -> Path | None:
+    """Expose all run checkpoints when a real training directory exists."""
     trained_dir = _trained_run_dir()
     if trained_dir.exists() and any(trained_dir.glob("*.pt")):
         return trained_dir
@@ -51,11 +65,19 @@ def _default_checkpoint_dir() -> Path | None:
 
 
 def _default_onnx_model_path() -> Path:
+    """Point the optional ONNX backend at the latest exported model."""
     return _trained_run_dir() / "model.onnx"
 
 
 @dataclass(frozen=True)
 class Settings:
+    """Deployment configuration assembled from code defaults and environment.
+
+    The default values intentionally favor the repository's main trained x4
+    artifact so the API comes up serving the real model instead of a bootstrap
+    demo checkpoint when both are available.
+    """
+
     app_name: str = "EPNet Demo API"
     app_version: str = "0.1.0"
     api_prefix: str = "/api/v1"
@@ -77,6 +99,7 @@ class Settings:
 
     @staticmethod
     def from_env() -> Settings:
+        """Build a validated settings object from environment variables."""
         raw_origins = os.getenv("EPNET_CORS_ORIGINS")
         default_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
         origins = (

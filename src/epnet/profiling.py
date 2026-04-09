@@ -1,3 +1,11 @@
+"""Low-level model profiling helpers shared by training and deployment.
+
+This file contains the inexpensive profile path that estimates parameter count,
+MACs/FLOPs, and average latency from a representative forward pass. The numbers
+are engineering-oriented approximations used for checkpoint comparison and UI
+display, not claims of paper-exact benchmark methodology.
+"""
+
 from __future__ import annotations
 
 import time
@@ -11,6 +19,8 @@ from .modules import WindowAttention
 
 @dataclass(frozen=True)
 class ModelProfile:
+    """Static profile summary for one model/checkpoint artifact."""
+
     parameters: int
     macs: int
     flops: int
@@ -18,10 +28,12 @@ class ModelProfile:
 
 
 def count_parameters(model: nn.Module) -> int:
+    """Count trainable and non-trainable parameters in the module tree."""
     return sum(parameter.numel() for parameter in model.parameters())
 
 
 def _conv_macs(module: nn.Conv2d, output: Tensor) -> int:
+    """Estimate convolution MACs from output shape and kernel geometry."""
     batch, out_channels, out_h, out_w = output.shape
     kernel_ops = (
         module.kernel_size[0]
@@ -32,15 +44,18 @@ def _conv_macs(module: nn.Conv2d, output: Tensor) -> int:
 
 
 def _linear_macs(module: nn.Linear, inputs: Tensor) -> int:
+    """Estimate linear-layer MACs for flattened token rows."""
     rows = int(inputs.numel() / inputs.shape[-1])
     return rows * module.in_features * module.out_features
 
 
 def _layer_norm_macs(output: Tensor) -> int:
+    """Approximate LayerNorm work with a simple per-element constant."""
     return output.numel() * 5
 
 
 def _attention_macs(module: WindowAttention, inputs: Tensor) -> int:
+    """Approximate window attention cost for one representative forward pass."""
     batch_windows, tokens, channels = inputs.shape
     return 2 * batch_windows * tokens * tokens * channels
 
@@ -51,6 +66,15 @@ def profile_model(
     warmup: int = 1,
     iters: int = 5,
 ) -> ModelProfile:
+    """Profile a model with hook-based MAC counting and repeated latency timing.
+
+    The function intentionally separates two concepts:
+
+    - MAC counting from a single representative forward pass
+    - latency estimation from repeated timed forwards
+
+    This avoids inflating MAC totals by the number of timing iterations.
+    """
     if warmup < 0 or iters <= 0:
         raise ValueError("warmup must be >= 0 and iters must be > 0.")
 

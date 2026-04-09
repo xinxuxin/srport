@@ -1,3 +1,13 @@
+"""Model profiling entry point for presentation-ready deployment metrics.
+
+This module complements evaluation by answering a different question: not "how
+good is the model?", but "how large and how expensive is it to run?".
+
+The output bundle is used both by local experimentation and by the deployment
+API to surface parameters, MACs, FLOPs, checkpoint size, and a lightweight
+latency estimate.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -21,6 +31,7 @@ def profile_checkpoint(
     output_json: Path | None = None,
     output_markdown: Path | None = None,
 ) -> dict[str, Any]:
+    """Profile a checkpoint and optionally test ONNX export as part of the run."""
     device_context = build_device_context(device, amp_mode="off", channels_last=True)
     checkpoint = load_checkpoint(checkpoint_path, map_location=device_context.device)
     model = load_model_from_checkpoint(checkpoint).to(device_context.device)
@@ -36,6 +47,9 @@ def profile_checkpoint(
         sample = sample.contiguous(memory_format=model_memory_format(device_context))
     profile = profile_model(model, sample)
     checkpoint_size = checkpoint_path.stat().st_size
+    # ``model_state_size`` captures only serialized tensor storage. The
+    # estimated runtime memory is intentionally coarse and should be presented
+    # as an engineering approximation rather than a measured peak footprint.
     model_state_size = sum(
         tensor.element_size() * tensor.nelement()
         for tensor in model.state_dict().values()
@@ -70,6 +84,7 @@ def profile_checkpoint(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser used by ``epnet-profile``."""
     parser = argparse.ArgumentParser(description="Profile an EPNet checkpoint.")
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output-json", type=Path, default=None)
@@ -84,6 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """Command-line entry point for model profiling."""
     args = build_parser().parse_args()
     print(
         json.dumps(

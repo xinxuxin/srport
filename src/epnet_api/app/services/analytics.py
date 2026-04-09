@@ -1,3 +1,13 @@
+"""Analytics service for replayable EPNet inference telemetry.
+
+This module belongs to the deployment/product layer rather than the research
+core. It turns per-request inference metadata into:
+
+- a historical event log for replay links
+- aggregate dashboard cards such as total requests and latency percentiles
+- recent-event previews used by the frontend analytics panels
+"""
+
 from __future__ import annotations
 
 import sqlite3
@@ -17,6 +27,7 @@ from ..schemas.api import (
 
 
 def _percentile(values: list[float], percentile: float) -> float:
+    """Compute a small-list percentile for dashboard latency summaries."""
     if not values:
         return 0.0
     ordered = sorted(values)
@@ -30,7 +41,10 @@ def _percentile(values: list[float], percentile: float) -> float:
 
 
 class AnalyticsService:
+    """Persistence and aggregation layer for inference usage analytics."""
+
     def __init__(self, database: Database) -> None:
+        """Bind the service to the SQLite-backed database helper."""
         self.database = database
 
     def log_event(
@@ -56,6 +70,7 @@ class AnalyticsService:
         input_artifact_url: str,
         output_artifact_url: str,
     ) -> None:
+        """Persist one completed inference event for dashboards and replay."""
         with self.database.connection() as connection:
             connection.execute(
                 """
@@ -91,6 +106,7 @@ class AnalyticsService:
             )
 
     def summary(self) -> AnalyticsSummaryResponse:
+        """Return aggregate analytics for the main dashboard cards and charts."""
         rows = self._fetch_rows()
         if not rows:
             return AnalyticsSummaryResponse(
@@ -130,11 +146,13 @@ class AnalyticsService:
         )
 
     def recent(self, limit: int = 10) -> RecentEventsResponse:
+        """Return the most recent completed requests for the history panel."""
         return RecentEventsResponse(
             recent_events=self._recent_events(self._fetch_rows(), limit=limit)
         )
 
     def history_event(self, request_id: str) -> HistoryEventResponse | None:
+        """Return a replayable historical event by request id, if present."""
         with self.database.connection() as connection:
             row = connection.execute(
                 """
@@ -177,6 +195,7 @@ class AnalyticsService:
         )
 
     def _fetch_rows(self) -> list[sqlite3.Row]:
+        """Fetch raw rows ordered by newest first for downstream summaries."""
         with self.database.connection() as connection:
             rows = connection.execute(
                 """
@@ -191,6 +210,7 @@ class AnalyticsService:
         return list(rows)
 
     def _latency_series(self, rows: list[sqlite3.Row]) -> list[AnalyticsPoint]:
+        """Build a recent latency series suitable for compact line charts."""
         return [
             AnalyticsPoint(
                 label=datetime.fromisoformat(str(row["created_at"])).strftime("%H:%M:%S"),
@@ -200,6 +220,7 @@ class AnalyticsService:
         ]
 
     def _recent_events(self, rows: list[sqlite3.Row], limit: int) -> list[EventPreview]:
+        """Map raw SQL rows into the preview cards used by the frontend."""
         return [
             EventPreview(
                 request_id=str(row["request_id"]),

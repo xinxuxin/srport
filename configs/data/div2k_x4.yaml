@@ -1,8 +1,12 @@
+# Mainline real-data x4 config used by the default deployment artifact.
 dataset_type: div2k
 dataset_root: data
+# DIV2K HR training images act as the source of random HR patches.
 train_hr_dir: data/raw/DIV2K/DIV2K_train_HR
+# Prepared LR caches for x4 live under this processed root.
 processed_root: data/processed
 scale: 4
+# Benchmark datasets are evaluated after training and for standalone eval runs.
 benchmark_roots:
   Set5: data/benchmarks/Set5/HR
   Set14: data/benchmarks/Set14/HR

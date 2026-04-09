@@ -1,2 +1,3 @@
+# Mainline deployment preset with the best local quality/efficiency trade-off.
 preset: edge_default
 upscale: 4

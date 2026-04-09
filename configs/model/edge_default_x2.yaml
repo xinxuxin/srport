@@ -1,2 +1,3 @@
+# x2 smoke/debug variant of the default edge preset.
 preset: edge_default
 upscale: 2

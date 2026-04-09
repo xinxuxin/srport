@@ -1,152 +1,218 @@
-# EPNet Demo
+# EPNet Super-Resolution System
 
-Production-oriented single-image super-resolution demo based on the paper **"EPNet: An Efficient Pyramid Network for Enhanced Single-Image Super-Resolution with Reduced Computational Requirements"**.
+Production-oriented single-image super-resolution repository based on the paper
+**"EPNet: An Efficient Pyramid Network for Enhanced Single-Image
+Super-Resolution with Reduced Computational Requirements."**
 
-[中文说明 / Chinese README](README.zh-CN.md)
+This repository is intentionally broader than a paper reproduction. It includes:
 
-This repository turns EPNet into a complete demo-ready solution asset:
+- the EPNet model implementation
+- real-data training and evaluation
+- checkpoint export and profiling
+- a FastAPI inference service
+- a frontend demo application
+- analytics, history, and deployment helpers
 
-- PyTorch EPNet model and paper-grounded implementation notes
-- training, evaluation, and inference CLIs
-- FastAPI backend with structured telemetry and artifact serving
-- animated Next.js frontend for interactive super-resolution demos
-- SQLite usage analytics with replayable history
-- Dockerized local stack
-- smoke, API, and browser automation coverage
+[English mirror for bilingual navigation](README.zh-CN.md)
 
-## What This Demo Now Shows
+## Project Overview
 
-The current demo is designed to feel like a solution engineering artifact rather than a raw research repo.
+The repository solves one core problem: turning a trained EPNet
+single-image-super-resolution model into a reproducible system that can be
+trained, evaluated, exported, deployed, and presented clearly.
 
-- bilingual UI toggle for English and Simplified Chinese
-- drag-and-drop single-image inference
-- batch inference mode with queue and aggregate stats
-- A/B compare across `EPNet`, `Bicubic`, and `Baseline`
-- x2/x3/x4 scale controls
-- checkpoint switcher for any checkpoints found in `checkpoints/*.pt`
-- output format switch for `PNG`, `JPEG`, `WEBP`, and `BMP`
-- optional tile inference for memory-friendly large-image demos
-- session ID support for usage grouping
-- downloadable outputs and shareable history links
-- replayable inference history from analytics records
-- model explanation page with PFEM / ESPM / reconstruction talk track
-- deployment/version panel with model version, checkpoint source, build time, git commit, and device target
-- one-click reproducibility command cards for train / eval / infer
-- analytics cards including request count, session count, average latency, p50 latency, and p95 latency
+It is useful in three different contexts:
 
-## Current Status
+1. research and engineering comparison
+2. local edge/deployment experimentation
+3. presentation/demo workflows where a trained model must run end to end
 
-- Core EPNet model implemented in PyTorch.
-- Paper defaults captured in configuration and training CLI.
-- Training CLI now supports `cpu`, `cuda`, and `mps`, plus inference-ready EMA checkpoint export.
-- Evaluation pipeline reports PSNR and SSIM.
-- FastAPI exposes health, model info, single inference, batch inference, usage summary, recent events, and replay history.
-- Output artifacts are returned by URL rather than inline base64 payloads.
-- Frontend includes animated compare, zoom loupe, pipeline timeline, usage charts, batch queue, and model explainer.
-- Playwright smoke coverage exercises upload success, friendly errors, compare slider interaction, refresh stability, and batch mode.
-- Docker Compose runs frontend and backend together for local demo use.
+## What the Repository Contains
 
-## Important Reproduction Note
+- EPNet architecture with PFEM and ESPM branches
+- model presets for paper-like and edge-oriented variants
+- config-driven real-data training
+- synthetic smoke/regression training
+- benchmark evaluation with PSNR and SSIM
+- checkpoint profiling and ONNX export smoke path
+- deployment-oriented inference service with artifact selection
+- Next.js frontend for upload, compare, analytics, and model explanation
 
-The repository now prefers the trained deployment artifact at `outputs/run_x4_edge_default/inference.pt` when it exists. The older `checkpoints/demo_x4.pt` checkpoint is kept only as a bootstrap fallback for machines that have not run full training yet.
+## Repository Structure
 
-Every paper ambiguity is documented in [docs/epnet_assumptions.md](/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md).
-
-## Project Structure
-
-- `src/epnet/models`: EPNet model, presets, registry, and block-level modules
-- `src/epnet/data`: synthetic, DIV2K, benchmark, transforms, paired datasets, and data builders
-- `src/epnet/utils`: device, metrics, manifest, seed, and path helpers
-- `src/epnet/train.py`: config-driven training plus legacy-compatible smoke path
-- `src/epnet/evaluate.py`: single-folder and multi-dataset evaluation
-- `src/epnet/ablate.py`: ablation runner
-- `src/epnet/profile.py`: profile reporting
-- `src/epnet/export.py`: ONNX export smoke path
-- `src/epnet_api`: FastAPI app, schemas, services, and analytics database
-- `frontend`: Next.js + TypeScript + Tailwind + Framer Motion + Recharts UI
-- `configs`: model, data, and train YAMLs
-- `scripts`: dataset setup and local full-training entrypoints
-- `tests`: backend, model, config, export, and training smoke coverage
-- `docs`: assumptions, audit, dataset setup, edge preset notes, and workflow docs
-
-## Paper-Faithful Scope
-
-- shallow `3x3` convolution for base feature extraction
-- PFEM branch with LFEB, modified Swin Transformer, and ESAB
-- ESPM branch with DCAB-style channel splitting and pyramid fusion
-- reconstruction by `3x3` convolution plus `PixelShuffle`
-- default `n = 4` PFEM blocks
-- appendix-aligned training defaults:
-  - patch size `48`
-  - batch size `32`
-  - Adam `lr=5e-4`, betas `(0.9, 0.99)`
-  - L1 loss
-  - EMA decay `0.999`
-  - `1e6` iterations
-  - no warm-up
-
-## Setup
-
-### Backend
-
-```bash
-python3 -m venv .venv
-.venv/bin/pip install '.[dev]'
+```text
+epnet/
+├── configs/
+│   ├── data/
+│   ├── model/
+│   └── train/
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── benchmarks/
+├── docs/
+├── frontend/
+├── outputs/
+├── scripts/
+├── src/
+│   ├── epnet/
+│   │   ├── data/
+│   │   ├── models/
+│   │   │   └── blocks/
+│   │   └── utils/
+│   └── epnet_api/
+└── tests/
 ```
 
-### Frontend
+Key directories:
 
-```bash
-cd frontend
-npm install
-cd ..
-```
+- `src/epnet/models`
+  - core architecture and block implementations
+- `src/epnet/data`
+  - synthetic, DIV2K, benchmark, and paired dataset logic
+- `src/epnet/train.py`
+  - main training entrypoint
+- `src/epnet/evaluate.py`
+  - benchmark evaluation entrypoint
+- `src/epnet/export.py`
+  - ONNX export entrypoint
+- `src/epnet_api`
+  - FastAPI serving and runtime integration
+- `frontend`
+  - user-facing demo system
+- `configs`
+  - reproducible model/data/train settings
+- `outputs`
+  - checkpoints, logs, evaluation artifacts, profiles, and exports
 
-## Synthetic Smoke Path
+## Architecture Overview
+
+### Product Language
+
+EPNet combines:
+
+- a detail-focused enhancement branch
+- a lightweight pyramid context branch
+- a reconstruction head that converts fused features into a sharper output image
+
+### Technical/Paper Language
+
+The code follows the paper's high-level structure:
+
+- shallow `3x3` convolution stem
+- PFEM branch
+- ESPM branch
+- feature fusion
+- reconstruction with convolution plus `PixelShuffle`
+
+### Branch Responsibilities
+
+PFEM:
+
+- progressive feature refinement
+- LFEB for local enhancement
+- transformer-style context modeling
+- ESAB for spatial attention refinement
+
+ESPM:
+
+- efficient pyramid-style multi-scale context
+- DCAB-based split/fuse channel processing
+- low-cost structural information pathway
+
+Reconstruction head:
+
+- fuse PFEM and ESPM outputs
+- project into the upsampling tensor space
+- `PixelShuffle` into x2/x3/x4 output resolution
+
+## Paper-to-Code Mapping Summary
+
+Top-level model:
+
+- [/Users/macbook/Desktop/epnet/src/epnet/models/epnet.py](/Users/macbook/Desktop/epnet/src/epnet/models/epnet.py)
+
+PFEM-related modules:
+
+- [/Users/macbook/Desktop/epnet/src/epnet/models/blocks/pfem.py](/Users/macbook/Desktop/epnet/src/epnet/models/blocks/pfem.py)
+- [/Users/macbook/Desktop/epnet/src/epnet/models/blocks/lfeb.py](/Users/macbook/Desktop/epnet/src/epnet/models/blocks/lfeb.py)
+- [/Users/macbook/Desktop/epnet/src/epnet/models/blocks/global_context.py](/Users/macbook/Desktop/epnet/src/epnet/models/blocks/global_context.py)
+- [/Users/macbook/Desktop/epnet/src/epnet/models/blocks/esab.py](/Users/macbook/Desktop/epnet/src/epnet/models/blocks/esab.py)
+
+ESPM/DCAB:
+
+- [/Users/macbook/Desktop/epnet/src/epnet/models/blocks/espm.py](/Users/macbook/Desktop/epnet/src/epnet/models/blocks/espm.py)
+- [/Users/macbook/Desktop/epnet/src/epnet/models/blocks/dcab.py](/Users/macbook/Desktop/epnet/src/epnet/models/blocks/dcab.py)
+
+Preset system:
+
+- [/Users/macbook/Desktop/epnet/src/epnet/models/presets.py](/Users/macbook/Desktop/epnet/src/epnet/models/presets.py)
+- [/Users/macbook/Desktop/epnet/src/epnet/models/registry.py](/Users/macbook/Desktop/epnet/src/epnet/models/registry.py)
+- [/Users/macbook/Desktop/epnet/src/epnet/config.py](/Users/macbook/Desktop/epnet/src/epnet/config.py)
+
+For the full mapping, read:
+
+- [/Users/macbook/Desktop/epnet/docs/paper_to_code_map.md](/Users/macbook/Desktop/epnet/docs/paper_to_code_map.md)
+
+## Presets
+
+### `paper_like`
+
+- closest to the paper-style structural baseline
+- useful for comparison and explanation
+- not the default deployment preset
+
+### `edge_tiny`
+
+- smallest preset
+- good for smoke checks or very constrained deployment experiments
+
+### `edge_default`
+
+- repository default
+- optimized for practical quality/efficiency balance
+- current mainline x4 deployment artifact is trained from this preset
+
+### `balanced_quality`
+
+- wider comparison model
+- useful when exploring local quality/latency trade-offs
+
+## Training Workflow
+
+### Synthetic Smoke Path
+
+Use this when you want fast regression coverage, not meaningful benchmark
+results.
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m epnet.train \
   --model-config configs/model/edge_default_x2.yaml \
   --data-config configs/data/synthetic_x2.yaml \
   --train-config configs/train/smoke.yaml
-
-PYTHONPATH=src .venv/bin/python -m epnet.experiments \
-  --output-dir outputs/model_ablation_mps \
-  --report-path docs/model_ablation_results.md \
-  --json-path docs/model_ablation_results.json \
-  --device mps \
-  --scale 2 \
-  --steps 8 \
-  --synthetic-count 128
 ```
 
-Synthetic training and ablation are now treated as smoke/regression paths. They remain useful for CI-friendly checks and local sanity verification, but they are no longer the mainline training story for this repository.
+### Real-Data Mainline Path
 
-## Real-Data Full Training Path
-
-### 1. Download datasets
+1. Download datasets
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/download_real_data.py --data-root data
 ```
 
-### 2. Prepare bicubic LR caches
+2. Prepare bicubic caches
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/prepare_real_data.py --data-root data --scales 2 3 4
 ```
 
-### 3. Run full local x4 training
+3. Start or resume full x4 training
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/run_local_full_x4.py
 ```
 
-### 4. Resume full x4 training
-
-`scripts/run_local_full_x4.py` automatically resumes from `outputs/run_x4_edge_default/latest.pt` when that file already exists.
-
-### 5. Evaluate a checkpoint
+4. Evaluate the trained artifact
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m epnet.evaluate \
@@ -156,270 +222,169 @@ PYTHONPATH=src .venv/bin/python -m epnet.evaluate \
   --output-markdown outputs/run_x4_edge_default/eval.md
 ```
 
-## Config-Driven Training System
+### Resume Behavior
 
-The repository now supports config-driven training:
+The full training scripts automatically resume from `latest.pt` when present.
+This applies to the mainline x4 run under:
 
-```bash
-PYTHONPATH=src .venv/bin/python -m epnet.train \
-  --model-config configs/model/edge_default.yaml \
-  --data-config configs/data/div2k_x4.yaml \
-  --train-config configs/train/local_full_x4.yaml
-```
+- `/Users/macbook/Desktop/epnet/outputs/run_x4_edge_default`
 
-- automatic device selection across `cuda`, `mps`, and `cpu`
-- optional CUDA AMP with safe fallback on MPS/CPU
-- config snapshot saved into each run directory
-- reproducible `manifest.json` with git commit, command, seed, device, dataset paths, and config payload
-- EMA tracking during training
-- resume support with optimizer and scaler restoration
-- eval during training through the primary validation directory
-- best checkpoint + latest checkpoint
-- rolling snapshots
-- dedicated inference checkpoint export using EMA weights
-- evaluation and profile report generation after config-driven runs
+### Training Outputs
 
-Generated run artifacts:
+Typical training outputs:
 
-- `outputs/<run_name>/manifest.json`
-- `outputs/<run_name>/train_log.jsonl`
-- `outputs/<run_name>/latest.pt`
-- `outputs/<run_name>/best.pt`
-- `outputs/<run_name>/inference.pt`
-- `outputs/<run_name>/eval.json`
-- `outputs/<run_name>/eval.md`
-- `outputs/<run_name>/profile.json`
-- `outputs/<run_name>/profile.md`
-- `outputs/<run_name>/model.onnx`
+- `manifest.json`
+- `train_log.jsonl`
+- `latest.pt`
+- `best.pt`
+- `inference.pt`
+- `stepXXXX.pt`
+- `eval.json`
+- `eval.md`
+- `profile.json`
+- `profile.md`
+- `model.onnx`
 
-### Model Variants
+## Evaluation Workflow
 
-- `paper_like`: baseline comparison preset closest to the paper-grounded configuration
-- `edge_tiny`: smallest edge-oriented preset
-- `edge_default`: recommended mainline preset, using PFEM depth `2` and ESPM levels `2`
-- `balanced_quality`: wider preset for local quality-oriented comparisons
+Evaluation uses:
 
-Legacy aliases `tiny`, `paper`, and `balanced` are still accepted for compatibility, but the repo now uses the new preset names in configs and docs.
+- PSNR
+- SSIM
 
-### Variant Comparison And Ablation
+Supported benchmark datasets:
 
-The repo now includes a reproducible ablation runner for model-only comparisons.
+- Set5
+- Set14
+- BSD100
+- Urban100
+- Manga109 if manually provided
 
-- command entry: `python -m epnet.experiments`
-- default suite: `tiny`, `paper`, `balanced`, plus `paper` ablations for PFEM depth, shared PFEM weights, and ESPM depth
-- outputs:
-  - raw checkpoints in `outputs/model_ablation_mps/`
-  - markdown summary in `docs/model_ablation_results.md`
-  - raw metrics in `docs/model_ablation_results.json`
+Main evaluation entrypoint:
 
-The checked-in report documents one real local MPS run on deterministic synthetic data. Treat it as an engineering comparison, not a paper benchmark.
+- [/Users/macbook/Desktop/epnet/src/epnet/evaluate.py](/Users/macbook/Desktop/epnet/src/epnet/evaluate.py)
 
-## Dataset Download And Preparation
+## Deployment Workflow
 
-- dataset setup guide: [docs/dataset_setup.md](/Users/macbook/Desktop/epnet/docs/dataset_setup.md)
-- real training workflow: [docs/real_training_workflow.md](/Users/macbook/Desktop/epnet/docs/real_training_workflow.md)
-- edge preset notes: [docs/edge_preset_notes.md](/Users/macbook/Desktop/epnet/docs/edge_preset_notes.md)
+### Default Deployment Artifact
 
-The download script supports:
+The backend prefers:
 
-- DIV2K train and validation HR
-- Set5 / Set14 / BSD100 / Urban100 via the VDSR benchmark test pack
+- `/Users/macbook/Desktop/epnet/outputs/run_x4_edge_default/inference.pt`
 
-Manual fallback:
+If that file is missing, it falls back to:
 
-- Manga109 is not auto-downloaded by default; place it manually under `data/benchmarks/Manga109/HR`
+- `/Users/macbook/Desktop/epnet/checkpoints/demo_x4.pt`
 
-## Output Directory Structure
+### Runtime Backend
 
-```text
-outputs/
-  run_x4_edge_default/
-    config_snapshot/
-      model.json
-      data.json
-      train.json
-    manifest.json
-    train_log.jsonl
-    latest.pt
-    best.pt
-    inference.pt
-    eval.json
-    eval.md
-    profile.json
-    profile.md
-    model.onnx
-```
+Default backend:
 
-## Known Limitations
+- PyTorch
 
-- The demo checkpoint in `checkpoints/demo_x4.pt` is still a bootstrap artifact, not a full benchmark-trained weight.
-- Synthetic ablation results are engineering comparisons, not paper claims.
-- Manga109 setup is manual unless you already have approved access.
-- ONNX export is exercised as a smoke path and may report unsupported ops depending on the active PyTorch exporter/runtime.
+Optional backend:
 
-## One-Command Local Demo
+- ONNX, when export exists and the runtime environment supports it
+
+### One-Command Demo Path
 
 ```bash
 ./scripts/run_local.sh
 ```
 
-This script will:
-
-- create `.venv` if missing
-- install backend dependencies
-- install frontend dependencies
-- prefer `outputs/run_x4_edge_default/inference.pt` for deployment when it exists
-- fall back to `checkpoints/demo_x4.pt` only when no trained deployment checkpoint is available
-- start FastAPI on `http://localhost:8000`
-- start Next.js on `http://localhost:3000`
-
-If your local ports are already occupied, override them without changing code:
+If default ports are already occupied:
 
 ```bash
-EPNET_API_PORT=8011 EPNET_FRONTEND_PORT=3011 ./scripts/run_local.sh
+EPNET_API_PORT=8012 EPNET_FRONTEND_PORT=3012 ./scripts/run_local.sh
 ```
 
-## API Summary
+### Useful Endpoints
 
-Primary endpoints:
+- frontend: `http://localhost:3012`
+- model page: `http://localhost:3012/model`
+- API health: `http://localhost:8012/api/v1/health`
+- model info: `http://localhost:8012/api/v1/model/info`
 
-- `GET /api/v1/health`
-- `GET /api/v1/model/info`
-- `POST /api/v1/infer`
-- `POST /api/v1/infer/batch`
-- `GET /api/v1/usage/summary`
-- `GET /api/v1/usage/recent`
-- `GET /api/v1/history/{request_id}`
-
-Backward-compatible aliases:
-
-- `POST /api/v1/super-resolve`
-- `GET /api/v1/analytics/summary`
-
-### Single Inference Options
-
-`POST /api/v1/infer` accepts multipart form data:
-
-- `file`
-- `session_id`
-- `method`: `epnet`, `bicubic`, `baseline`
-- `scale`: `2`, `3`, `4`
-- `output_format`: `PNG`, `JPEG`, `WEBP`, `BMP`
-- `tile_size`: `0`, `256`, `384`, `512`
-- `checkpoint_name`: optional, only for EPNet mode
-
-### Batch Inference
-
-`POST /api/v1/infer/batch` accepts repeated `files` fields plus the same inference options as single-image mode.
-
-### Analytics and Replay
-
-Each inference record stores:
-
-- request ID and UTC timestamp
-- session ID
-- input/output resolution
-- input/output bytes
-- selected method and scale
-- checkpoint name
-- output format
-- tile size
-- latency
-- parameter count
-- estimated MACs/FLOPs
-- artifact URLs for replay
-
-## Checkpoints and Deployment Artifact Selection
-
-By default, the backend now serves a single explicit deployment artifact:
-
-- primary default: `outputs/run_x4_edge_default/inference.pt`
-- fallback default: `checkpoints/demo_x4.pt`
-
-The deployment backend is explicit:
-
-- default runtime backend: `pytorch`
-- optional backend selector: `EPNET_INFERENCE_BACKEND=pytorch|onnx`
-
-To swap the deployed checkpoint:
+### Example Inference Request
 
 ```bash
-EPNET_CHECKPOINT_PATH=/absolute/path/to/inference.pt ./scripts/run_local.sh
+curl -X POST http://localhost:8012/api/v1/infer \
+  -F 'file=@data/samples/demo_input.png;type=image/png' \
+  -F 'session_id=demo' \
+  -F 'method=epnet' \
+  -F 'scale=4' \
+  -F 'output_format=PNG' \
+  -F 'tile_size=0'
 ```
 
-If you want the frontend checkpoint switcher to expose a directory of multiple `.pt` artifacts, point the backend at that directory explicitly:
+The output image URL is returned in the JSON response.
 
-```bash
-EPNET_CHECKPOINT_DIR=/absolute/path/to/checkpoint_dir ./scripts/run_local.sh
-```
+## Start Here If You Want to Understand the Code
 
-If `EPNET_INFERENCE_BACKEND=onnx` is requested, the system expects a valid ONNX export and a working `onnxruntime` installation. The current deployment default remains PyTorch because it is the most robust path for the trained EPNet artifact.
+### Model
 
-## Environment Variables
+Start with:
 
-- `EPNET_CHECKPOINT_PATH`
-- `EPNET_CHECKPOINT_DIR`
-- `EPNET_INFERENCE_BACKEND`
-- `EPNET_ONNX_MODEL_PATH`
-- `EPNET_ANALYTICS_DB_PATH`
-- `EPNET_ARTIFACTS_DIR`
-- `EPNET_MAX_UPLOAD_BYTES`
-- `EPNET_MAX_IMAGE_PIXELS`
-- `EPNET_CORS_ORIGINS`
-- `EPNET_BUILD_TIME`
-- `EPNET_GIT_COMMIT`
-- `EPNET_PROFILE_INPUT_SIZE`
+1. [/Users/macbook/Desktop/epnet/src/epnet/models/epnet.py](/Users/macbook/Desktop/epnet/src/epnet/models/epnet.py)
+2. [/Users/macbook/Desktop/epnet/src/epnet/models/blocks/pfem.py](/Users/macbook/Desktop/epnet/src/epnet/models/blocks/pfem.py)
+3. [/Users/macbook/Desktop/epnet/src/epnet/models/blocks/espm.py](/Users/macbook/Desktop/epnet/src/epnet/models/blocks/espm.py)
 
-Useful script-level overrides:
+### Training
 
-- `EPNET_API_HOST`
-- `EPNET_API_PORT`
-- `EPNET_FRONTEND_HOST`
-- `EPNET_FRONTEND_PORT`
-- `EPNET_API_RELOAD`
+Start with:
 
-## Docker
+1. [/Users/macbook/Desktop/epnet/src/epnet/train.py](/Users/macbook/Desktop/epnet/src/epnet/train.py)
+2. [/Users/macbook/Desktop/epnet/src/epnet/data/datamodule.py](/Users/macbook/Desktop/epnet/src/epnet/data/datamodule.py)
+3. [/Users/macbook/Desktop/epnet/src/epnet/data/paired_dataset.py](/Users/macbook/Desktop/epnet/src/epnet/data/paired_dataset.py)
 
-```bash
-docker compose up --build
-```
+### Deployment
 
-- frontend: [http://localhost:3000](http://localhost:3000)
-- backend: [http://localhost:8000](http://localhost:8000)
+Start with:
 
-Notes:
+1. [/Users/macbook/Desktop/epnet/src/epnet_api/app/services/inference.py](/Users/macbook/Desktop/epnet/src/epnet_api/app/services/inference.py)
+2. [/Users/macbook/Desktop/epnet/src/epnet_api/app/api/routes.py](/Users/macbook/Desktop/epnet/src/epnet_api/app/api/routes.py)
+3. [/Users/macbook/Desktop/epnet/src/epnet_api/app/core/settings.py](/Users/macbook/Desktop/epnet/src/epnet_api/app/core/settings.py)
 
-- backend Docker uses CPU-only PyTorch wheels for lighter local demo builds
-- frontend build script clears `.next` before production build to avoid stale app-router build artifacts
-- compose includes health checks for both services
+## Config and Dataset Guides
 
-## Verification
+- config reference:
+  [/Users/macbook/Desktop/epnet/docs/config_reference.md](/Users/macbook/Desktop/epnet/docs/config_reference.md)
+- dataset setup:
+  [/Users/macbook/Desktop/epnet/docs/dataset_setup.md](/Users/macbook/Desktop/epnet/docs/dataset_setup.md)
+- real training workflow:
+  [/Users/macbook/Desktop/epnet/docs/real_training_workflow.md](/Users/macbook/Desktop/epnet/docs/real_training_workflow.md)
+- code reading guide:
+  [/Users/macbook/Desktop/epnet/docs/code_reading_guide.md](/Users/macbook/Desktop/epnet/docs/code_reading_guide.md)
+- presentation notes:
+  [/Users/macbook/Desktop/epnet/docs/design_notes_for_presentation.md](/Users/macbook/Desktop/epnet/docs/design_notes_for_presentation.md)
 
-Validated recently with:
+## Known Limitations
 
-- `PYTHONPATH=src .venv/bin/ruff check src tests`
-- `PYTHONPATH=src .venv/bin/mypy src`
-- `PYTHONPATH=src .venv/bin/pytest`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run typecheck`
-- `cd frontend && npm run build`
-- `cd frontend && npm run test:e2e`
-- `docker compose config`
-- `docker compose up -d --build`
+- The repository is a documented, engineering-grounded EPNet implementation,
+  not an official author release.
+- Some paper details remain approximations; see
+  [/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md](/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md).
+- ONNX export is supported as a smoke/deployment-preparation path, but runtime
+  support depends on the local ONNX stack.
+- Manga109 is supported only through manual dataset placement.
+- Synthetic experiments are useful for engineering comparison, not benchmark
+  claims.
 
-## Demo Talking Points
+## Optimization Opportunities
 
-For a presentation or interview, the strongest story is usually:
-
-1. EPNet as an efficient SR architecture, not just a quality-max model
-2. system flow from upload to analytics logging
-3. deployment metadata and checkpoint provenance
-4. reproducibility from UI back to CLI
-5. edge/deployment readiness via batching, tile mode, replay, and Docker
+- validate ONNXRuntime on more deployment targets
+- add stricter runtime benchmarking across CPU, MPS, and CUDA
+- investigate quantization-friendly alternatives for the global-context block
+- add downstream OCR or inspection tasks to show task-level value after SR
+- profile tile inference on larger deployment-style inputs
 
 ## Related Docs
 
-- [docs/epnet_assumptions.md](/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md)
-- [docs/final_audit_report.md](/Users/macbook/Desktop/epnet/docs/final_audit_report.md)
-- [docs/optimization_report.md](/Users/macbook/Desktop/epnet/docs/optimization_report.md)
-- [docs/demo_checklist.md](/Users/macbook/Desktop/epnet/docs/demo_checklist.md)
+- assumptions:
+  [/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md](/Users/macbook/Desktop/epnet/docs/epnet_assumptions.md)
+- model audit:
+  [/Users/macbook/Desktop/epnet/docs/model_audit_report.md](/Users/macbook/Desktop/epnet/docs/model_audit_report.md)
+- deployment report:
+  [/Users/macbook/Desktop/epnet/docs/system_deployment_report.md](/Users/macbook/Desktop/epnet/docs/system_deployment_report.md)
+- first real x4 run report:
+  [/Users/macbook/Desktop/epnet/docs/first_real_x4_run_report.md](/Users/macbook/Desktop/epnet/docs/first_real_x4_run_report.md)

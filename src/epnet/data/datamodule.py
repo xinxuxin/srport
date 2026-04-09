@@ -1,3 +1,5 @@
+"""Dataset builders used by the config-driven training and evaluation flows."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,6 +17,7 @@ def build_train_dataset(
     data_config: DataConfig,
     train_config: TrainConfig,
 ) -> Dataset[tuple]:
+    """Create the training dataset selected by the data configuration."""
     if data_config.dataset_type == "synthetic":
         return SyntheticPatternDataset(
             count=max(128, data_config.synthetic_count or train_config.batch_size * 8),
@@ -35,6 +38,11 @@ def build_validation_datasets(
     data_config: DataConfig,
     scale: int,
 ) -> dict[str, EvaluationImageDataset]:
+    """Build benchmark datasets for post-training evaluation.
+
+    Real-data runs prefer the standard SR benchmarks. If none are present, the
+    code falls back to a DIV2K subset so evaluation can still proceed.
+    """
     if data_config.dataset_type == "synthetic":
         eval_dir = Path(data_config.processed_root) / f"synthetic_eval_x{scale}"
         return {"synthetic_eval": EvaluationImageDataset(eval_dir, scale)}

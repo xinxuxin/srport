@@ -1,2 +1,3 @@
+# Smallest preset, useful for constrained experiments and quick profiling.
 preset: edge_tiny
 upscale: 4

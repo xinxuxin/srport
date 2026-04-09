@@ -1,3 +1,23 @@
+"""Inference service that turns trained EPNet artifacts into API responses.
+
+This module is the deployment-oriented bridge between the research/training
+side of the repository and the user-facing FastAPI application. It is
+responsible for:
+
+- discovering deployable checkpoint artifacts
+- rebuilding runtime models from training outputs
+- profiling metadata for UI display
+- preprocessing input images into tensors
+- running EPNet or baseline upsamplers
+- postprocessing outputs into viewable image artifacts
+- logging analytics so requests can be replayed and summarized
+
+The service currently defaults to PyTorch inference because that path is the
+most robust across dynamic image sizes. ONNX remains an optional backend when a
+runtime such as ``onnxruntime`` is available and validated for the target
+environment.
+"""
+
 from __future__ import annotations
 
 import io
@@ -41,6 +61,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _percentile(values: list[float], percentile: float) -> float:
+    """Compute a simple interpolated percentile for small analytics lists."""
     if not values:
         return 0.0
     ordered = sorted(values)
@@ -55,6 +76,12 @@ def _percentile(values: list[float], percentile: float) -> float:
 
 @dataclass(frozen=True)
 class RuntimeModel:
+    """Deployment-ready view of one checkpoint artifact.
+
+    Each discovered runtime keeps the rebuilt EPNet model together with the
+    profile numbers that the frontend shows as static checkpoint metadata.
+    """
+
     name: str
     model: EPNet
     profile: ModelProfile
@@ -71,18 +98,38 @@ class RuntimeModel:
 
 @dataclass(frozen=True)
 class InferenceError(Exception):
+    """Structured exception used to turn inference failures into API errors."""
+
     status_code: int
     detail: str
 
 
 class InferenceService:
+    """High-level inference coordinator used by the FastAPI routes.
+
+    Summary:
+        Loads available deployment artifacts on startup, chooses a default
+        runtime, exposes metadata for the frontend, and executes inference
+        requests end to end.
+
+    Role in the system:
+        This is the key service that makes the trained model usable as a
+        product demo instead of leaving it as a research checkpoint on disk.
+    """
+
     def __init__(self, settings: Settings, analytics: AnalyticsService) -> None:
+        """Construct the service and eagerly load available runtimes."""
         self.settings = settings
         self.analytics = analytics
         self.runtimes = self._load_runtime_models()
         self.default_runtime_name = self._select_default_runtime_name()
 
     def _load_runtime_models(self) -> dict[str, RuntimeModel]:
+        """Load every checkpoint artifact that should be selectable at runtime.
+
+        The frontend exposes checkpoint switching, so the API keeps a registry
+        of named runtimes instead of loading a single hard-coded file.
+        """
         if self.settings.inference_backend == "onnx":
             self._validate_onnx_backend()
 
@@ -106,6 +153,7 @@ class InferenceService:
         return runtimes
 
     def _candidate_checkpoint_paths(self) -> list[Path]:
+        """Resolve the checkpoint artifacts that should be considered deployable."""
         if self.settings.checkpoint_dir is not None:
             if not self.settings.checkpoint_dir.exists():
                 raise RuntimeError(
@@ -130,6 +178,7 @@ class InferenceService:
         return [self.settings.checkpoint_path]
 
     def _validate_onnx_backend(self) -> None:
+        """Fail early when ONNX deployment was requested but is not usable."""
         if self.settings.onnx_model_path is None:
             raise RuntimeError(
                 "EPNET_INFERENCE_BACKEND=onnx requires EPNET_ONNX_MODEL_PATH "
@@ -148,10 +197,20 @@ class InferenceService:
             ) from exc
 
     def _runtime_from_checkpoint(self, checkpoint_path: Path) -> RuntimeModel:
+        """Rebuild a deployable runtime from a training/export checkpoint.
+
+        The training system stores enough structural metadata inside the
+        checkpoint to reconstruct the exact EPNet variant. We also compute a
+        small static profile here so the UI can show parameter count, MACs, and
+        reference latency without re-running expensive profiling on every
+        request.
+        """
         checkpoint = load_checkpoint(checkpoint_path, map_location="cpu")
         model = load_model_from_checkpoint(checkpoint)
         ema_state = checkpoint.get("ema_state")
         if isinstance(ema_state, dict):
+            # Deployment prefers EMA weights because they are usually smoother
+            # than the raw last-step weights produced by the optimizer.
             model.load_state_dict(ema_state)
         model.eval()
         estimated_memory_bytes = sum(
@@ -165,6 +224,8 @@ class InferenceService:
             self.settings.profile_input_size,
             self.settings.profile_input_size,
         )
+        # The sample size is intentionally fixed so checkpoint metadata remains
+        # comparable across requests and frontend sessions.
         profile = profile_model(model, sample)
         scale = int(model.config.upscale)
         return RuntimeModel(
@@ -183,12 +244,14 @@ class InferenceService:
         )
 
     def _select_default_runtime_name(self) -> str:
+        """Choose the runtime that should represent the system by default."""
         preferred_name = self.settings.checkpoint_path.stem
         if preferred_name in self.runtimes:
             return preferred_name
         return sorted(self.runtimes.keys())[0]
 
     def _available_checkpoints(self) -> list[CheckpointOption]:
+        """Expose checkpoint choices to the frontend checkpoint selector."""
         return [
             CheckpointOption(
                 name=runtime.name,
@@ -201,12 +264,19 @@ class InferenceService:
         ]
 
     def _normalize_method(self, method: str) -> str:
+        """Map user-facing method aliases onto canonical backend names."""
         normalized = method.lower().strip()
         if normalized == "bilinear":
             return "baseline"
         return normalized
 
     def _resolve_runtime(self, checkpoint_name: str | None, scale: int | None) -> RuntimeModel:
+        """Choose a runtime by explicit checkpoint name or requested scale.
+
+        When no checkpoint is provided, scale-based inference prefers the same
+        runtime that ``/model/info`` reports so the UI description and the
+        actual inference path stay consistent.
+        """
         if checkpoint_name:
             runtime = self.runtimes.get(checkpoint_name)
             if runtime is None:
@@ -230,6 +300,7 @@ class InferenceService:
         return self.runtimes[self.default_runtime_name]
 
     def model_info(self, checkpoint_name: str | None = None) -> ModelInfoResponse:
+        """Return static metadata for the selected deployment artifact."""
         runtime = self._resolve_runtime(checkpoint_name=checkpoint_name, scale=None)
         return ModelInfoResponse(
             name="EPNet",
@@ -275,6 +346,13 @@ class InferenceService:
         tile_size: int = 0,
         checkpoint_name: str | None = None,
     ) -> InferenceResponse:
+        """Run one end-to-end super-resolution request.
+
+        The method intentionally mirrors the system story shown in the frontend:
+        upload -> decode -> preprocess -> infer -> encode -> log.
+        Each stage duration is returned so the UI can explain the product flow
+        rather than only showing a single opaque latency number.
+        """
         method_name = self._normalize_method(method)
         if method_name not in SUPPORTED_METHODS:
             raise InferenceError(400, f"Unsupported inference method '{method}'.")
@@ -307,6 +385,8 @@ class InferenceService:
         if method_name == "epnet":
             runtime = self._resolve_runtime(checkpoint_name=checkpoint_name, scale=requested_scale)
             requested_scale = runtime.scale
+            # Training, evaluation, and deployment all use RGB tensors in
+            # [0, 1], so deployment reuses the same PIL-to-tensor conversion.
             input_tensor = pil_to_tensor(input_image).unsqueeze(0)
         preprocess_ms = (time.perf_counter() - preprocess_start) * 1000.0
 
@@ -316,6 +396,8 @@ class InferenceService:
                 raise InferenceError(500, "EPNet runtime was not initialized correctly.")
             with torch.inference_mode():
                 if tile_size > 0:
+                    # Tile mode exists for demo robustness on large images. It
+                    # trades some overhead for a lower peak memory footprint.
                     output_tensor = self._tile_forward(
                         runtime.model,
                         input_tensor,
@@ -326,6 +408,8 @@ class InferenceService:
                     output_tensor = runtime.model(input_tensor)[0]
             output_image = tensor_to_pil(output_tensor)
         else:
+            # Baselines are served through the same API so users can compare the
+            # trained EPNet checkpoint against simple interpolation methods.
             output_image = self._baseline_resize(input_image, requested_scale, method_name)
         infer_ms = (time.perf_counter() - infer_start) * 1000.0
 
@@ -437,6 +521,8 @@ class InferenceService:
         )
 
         log_start = time.perf_counter()
+        # Analytics persist enough metadata to replay a request in the UI and
+        # to summarize the deployment behavior over time.
         self.analytics.log_event(
             request_id=request_id,
             created_at=created_at,
@@ -491,6 +577,7 @@ class InferenceService:
         tile_size: int,
         checkpoint_name: str | None,
     ) -> BatchInferenceResponse:
+        """Run a list of files through the same inference settings."""
         results = [
             self.super_resolve(
                 image_bytes=image_bytes,
@@ -534,6 +621,12 @@ class InferenceService:
         tile_size: int,
         checkpoint_name: str | None,
     ) -> list[ComparisonOutput]:
+        """Generate comparison artifacts for non-primary methods.
+
+        The frontend compare gallery expects URLs for the same request rendered
+        through multiple methods, so we materialize those outputs here while the
+        original input image is still in memory.
+        """
         comparisons: list[ComparisonOutput] = []
         candidates = [method for method in SUPPORTED_METHODS if method != primary_method]
         for candidate in candidates:
@@ -587,6 +680,7 @@ class InferenceService:
         return comparisons
 
     def _decode_image(self, image_bytes: bytes) -> Image.Image:
+        """Decode and validate an uploaded image payload."""
         try:
             image = Image.open(io.BytesIO(image_bytes))
             image.load()
@@ -607,6 +701,7 @@ class InferenceService:
         return image.convert("RGB")
 
     def _baseline_resize(self, image: Image.Image, scale: int, method: str) -> Image.Image:
+        """Apply simple interpolation baselines used for A/B comparisons."""
         size = (image.width * scale, image.height * scale)
         if method == "bicubic":
             return resize_bicubic(image, size)
@@ -622,6 +717,13 @@ class InferenceService:
         scale: int,
         overlap: int = 8,
     ) -> torch.Tensor:
+        """Run tiled inference for large inputs with overlap blending.
+
+        Shape notes:
+            ``tensor`` is expected to be ``[1, C, H, W]``. The output is stitched
+            into a full ``[1, C, H*scale, W*scale]`` tensor by averaging
+            overlapping predictions.
+        """
         batch, channels, height, width = tensor.shape
         if batch != 1:
             raise InferenceError(400, "Tile inference currently supports a batch size of 1.")
@@ -641,6 +743,8 @@ class InferenceService:
                 tile = tensor[:, :, top_pad:bottom_pad, left_pad:right_pad]
                 tile_output = model(tile)
 
+                # Crop away the overlap halo before writing back into the final
+                # image so each pixel is blended only where tiles intersect.
                 crop_top = (top - top_pad) * scale
                 crop_left = (left - left_pad) * scale
                 crop_bottom = crop_top + (bottom - top) * scale
@@ -659,6 +763,7 @@ class InferenceService:
         return output / weight.clamp_min(1)
 
     def _normalize_output_format(self, image_format: str) -> str:
+        """Normalize image format aliases to Pillow-compatible names."""
         normalized = image_format.upper()
         if normalized == "JPG":
             return "JPEG"
@@ -674,6 +779,7 @@ class InferenceService:
         image_format: str,
         suffix: str,
     ) -> str:
+        """Write an image artifact to disk and return its public API URL."""
         extension_map = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp", "BMP": "bmp"}
         extension = extension_map.get(image_format, "png")
         ensure_dir(self.settings.artifacts_dir)

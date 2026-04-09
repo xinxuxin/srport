@@ -1,3 +1,5 @@
+"""Thin evaluation dataset wrapper used by validation and benchmark runs."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,6 +12,8 @@ from .transforms import list_images
 
 
 class EvaluationImageDataset(Dataset[tuple[str, Tensor, Tensor]]):
+    """Expose benchmark HR images as deterministic LR/HR SR pairs."""
+
     def __init__(self, hr_dir: Path, scale: int) -> None:
         self.images = list_images(hr_dir)
         if not self.images:

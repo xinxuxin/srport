@@ -1,3 +1,10 @@
+"""Shared utility exports used across EPNet training, evaluation, and serving.
+
+This package-level module gathers the most frequently reused helpers so the
+rest of the codebase can depend on stable import paths rather than many deeply
+nested utility modules.
+"""
+
 from ..data.transforms import (
     load_image,
     make_divisible,

@@ -1,7 +1,11 @@
+# Mainline real-data x4 schedule used to train the deployed artifact.
 scale: 4
+# HR patch size follows the paper-style local training setup.
 patch_size: 48
+# Smaller batch size keeps MPS and modest GPUs stable for long runs.
 batch_size: 4
 total_steps: 100000
+# Frequent snapshots and validation are chosen for resumable local training.
 save_every: 100
 log_every: 25
 num_workers: 2
@@ -12,6 +16,7 @@ channels_last: true
 val_every: 100
 max_validation_images: 8
 checkpoint_history: 2
+# This run directory is the repository's mainline x4 artifact location.
 run_name: run_x4_edge_default
 output_root: outputs
 auto_resume: true

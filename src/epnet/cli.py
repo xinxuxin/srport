@@ -1,3 +1,10 @@
+"""Unified CLI multiplexer for EPNet subcommands.
+
+The project still exposes dedicated entry points such as ``epnet-train`` and
+``epnet-eval``, but this file provides a single umbrella command for users who
+prefer a top-level ``epnet <subcommand>`` interface.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -7,6 +14,7 @@ from . import ablate, evaluate, export, infer, profile, train
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the top-level parser that dispatches to subcommands."""
     parser = argparse.ArgumentParser(description="Unified EPNet CLI.")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("train")
@@ -19,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """Dispatch the requested subcommand to its dedicated module."""
     args, remaining = build_parser().parse_known_args()
     sys.argv = [f"epnet-{args.command}", *remaining]
     if args.command == "train":

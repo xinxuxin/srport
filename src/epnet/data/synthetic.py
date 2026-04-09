@@ -1,3 +1,11 @@
+"""Synthetic smoke-data utilities for fast regression testing.
+
+Synthetic data is no longer the main research path in this repository, but it
+remains valuable for CI-friendly tests and quick local sanity checks. The images
+here are deliberately structured enough to exercise super-resolution behavior
+without requiring real datasets.
+"""
+
 from __future__ import annotations
 
 import random
@@ -10,6 +18,7 @@ from .transforms import pil_to_tensor, resize_bicubic
 
 
 def synthetic_pattern_image(size: int, seed: int) -> Image.Image:
+    """Create a deterministic synthetic image with edges, lines, and shapes."""
     generator = random.Random(seed)
     image = Image.new(
         "RGB",
@@ -40,6 +49,8 @@ def synthetic_pattern_image(size: int, seed: int) -> Image.Image:
 
 
 class SyntheticPatternDataset(Dataset[tuple[Tensor, Tensor]]):
+    """Small synthetic SR dataset used by smoke tests and fast experiments."""
+
     def __init__(self, count: int, hr_size: int, scale: int, seed: int = 42) -> None:
         self.count = count
         self.hr_size = hr_size
@@ -50,6 +61,7 @@ class SyntheticPatternDataset(Dataset[tuple[Tensor, Tensor]]):
         return self.count
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
+        """Return a deterministic synthetic LR/HR pair."""
         image = synthetic_pattern_image(self.hr_size, self.seed + index)
         lr = resize_bicubic(image, (self.hr_size // self.scale, self.hr_size // self.scale))
         return pil_to_tensor(lr), pil_to_tensor(image)
