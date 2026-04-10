@@ -36,58 +36,58 @@ type DetailContent = {
   accent: string;
 };
 
-const VIEWBOX = { width: 1280, height: 860 };
+const VIEWBOX = { width: 1360, height: 900 };
 
 const regionFrames: Record<InteractiveKey, RegionFrame> = {
-  espm: { x: 40, y: 52, w: 360, h: 180, delay: 0.12 },
-  dcab: { x: 910, y: 52, w: 310, h: 190, delay: 0.2 },
-  input: { x: 36, y: 306, w: 110, h: 124, delay: 0.28 },
-  stem: { x: 178, y: 336, w: 104, h: 70, delay: 0.33 },
-  pfem1: { x: 318, y: 330, w: 112, h: 82, delay: 0.38 },
-  pfem2: { x: 452, y: 330, w: 112, h: 82, delay: 0.43 },
-  pfem3: { x: 586, y: 330, w: 112, h: 82, delay: 0.48 },
-  pfem4: { x: 720, y: 330, w: 112, h: 82, delay: 0.53 },
-  concat: { x: 858, y: 338, w: 86, h: 68, delay: 0.58 },
-  fusion: { x: 966, y: 330, w: 112, h: 82, delay: 0.63 },
-  pixel: { x: 1100, y: 330, w: 112, h: 82, delay: 0.68 },
-  output: { x: 1142, y: 304, w: 110, h: 128, delay: 0.73 },
-  pfemInset: { x: 70, y: 540, w: 470, h: 220, delay: 0.24 },
-  legend: { x: 828, y: 560, w: 392, h: 196, delay: 0.28 }
+  espm: { x: 34, y: 46, w: 456, h: 216, delay: 0.12 },
+  dcab: { x: 968, y: 46, w: 344, h: 214, delay: 0.2 },
+  input: { x: 28, y: 312, w: 126, h: 138, delay: 0.28 },
+  stem: { x: 176, y: 344, w: 126, h: 82, delay: 0.33 },
+  pfem1: { x: 328, y: 336, w: 130, h: 104, delay: 0.38 },
+  pfem2: { x: 472, y: 336, w: 130, h: 104, delay: 0.43 },
+  pfem3: { x: 616, y: 336, w: 130, h: 104, delay: 0.48 },
+  pfem4: { x: 760, y: 336, w: 130, h: 104, delay: 0.53 },
+  concat: { x: 914, y: 346, w: 104, h: 82, delay: 0.58 },
+  fusion: { x: 1040, y: 336, w: 126, h: 104, delay: 0.63 },
+  pixel: { x: 1188, y: 336, w: 124, h: 104, delay: 0.68 },
+  output: { x: 1218, y: 306, w: 118, h: 142, delay: 0.73 },
+  pfemInset: { x: 70, y: 560, w: 548, h: 246, delay: 0.24 },
+  legend: { x: 886, y: 572, w: 426, h: 222, delay: 0.28 }
 };
 
 const connectorPaths = [
-  { key: "main-1", d: "M 146 368 C 160 368, 168 368, 178 368" },
-  { key: "main-2", d: "M 282 371 C 294 371, 304 371, 318 371" },
-  { key: "main-3", d: "M 430 371 C 440 371, 446 371, 452 371" },
-  { key: "main-4", d: "M 564 371 C 574 371, 580 371, 586 371" },
-  { key: "main-5", d: "M 698 371 C 708 371, 714 371, 720 371" },
-  { key: "main-6", d: "M 832 371 C 842 371, 850 371, 858 371" },
-  { key: "main-7", d: "M 944 371 C 954 371, 960 371, 966 371" },
-  { key: "main-8", d: "M 1078 371 C 1088 371, 1094 371, 1100 371" },
-  { key: "main-9", d: "M 1212 371 C 1224 371, 1234 371, 1242 371" },
-  { key: "espm-up", d: "M 230 336 C 230 286, 220 248, 220 232" },
-  { key: "espm-forward", d: "M 400 142 C 570 142, 754 142, 910 142" },
-  { key: "espm-down", d: "M 344 232 C 344 280, 430 310, 1022 310" },
-  { key: "fusion-join", d: "M 1022 310 C 1022 320, 1022 328, 1022 330" },
-  { key: "dcab-callout", d: "M 400 146 C 600 116, 760 106, 910 124" },
-  { key: "pfem-callout", d: "M 508 412 C 478 470, 394 510, 306 540" }
+  { key: "main-1", d: "M 154 384 C 168 384, 174 384, 176 384" },
+  { key: "main-2", d: "M 302 386 C 314 386, 320 388, 328 388" },
+  { key: "main-3", d: "M 458 388 C 464 388, 468 388, 472 388" },
+  { key: "main-4", d: "M 602 388 C 608 388, 612 388, 616 388" },
+  { key: "main-5", d: "M 746 388 C 752 388, 756 388, 760 388" },
+  { key: "main-6", d: "M 890 388 C 900 388, 908 388, 914 388" },
+  { key: "main-7", d: "M 1018 388 C 1026 388, 1032 388, 1040 388" },
+  { key: "main-8", d: "M 1166 388 C 1174 388, 1180 388, 1188 388" },
+  { key: "main-9", d: "M 1312 388 C 1320 388, 1328 388, 1336 388" },
+  { key: "espm-up", d: "M 238 344 C 238 292, 228 256, 228 244" },
+  { key: "espm-forward", d: "M 490 154 C 650 154, 814 154, 968 154" },
+  { key: "espm-down", d: "M 378 262 C 378 304, 478 328, 1104 328" },
+  { key: "fusion-join", d: "M 1104 328 C 1104 336, 1104 340, 1104 344" },
+  { key: "dcab-callout", d: "M 490 160 C 676 124, 834 116, 968 136" },
+  { key: "pfem-callout", d: "M 538 440 C 512 506, 436 542, 332 560" }
 ];
 
 const pulseWaypoints: Record<InteractiveKey, { x: number; y: number }> = {
-  input: { x: 146, y: 368 },
-  stem: { x: 230, y: 371 },
-  pfem1: { x: 374, y: 371 },
-  pfem2: { x: 508, y: 371 },
-  pfem3: { x: 642, y: 371 },
-  pfem4: { x: 776, y: 371 },
-  concat: { x: 901, y: 371 },
-  espm: { x: 230, y: 142 },
-  fusion: { x: 1022, y: 371 },
-  pixel: { x: 1156, y: 371 },
-  output: { x: 1242, y: 371 },
-  dcab: { x: 1064, y: 142 },
-  pfemInset: { x: 306, y: 650 },
-  legend: { x: 1024, y: 650 }
+  input: { x: 154, y: 384 },
+  stem: { x: 238, y: 386 },
+  pfem1: { x: 392, y: 388 },
+  pfem2: { x: 536, y: 388 },
+  pfem3: { x: 680, y: 388 },
+  pfem4: { x: 824, y: 388 },
+  concat: { x: 966, y: 388 },
+  espm: { x: 238, y: 154 },
+  fusion: { x: 1104, y: 388 },
+  pixel: { x: 1250, y: 388 },
+  output: { x: 1336, y: 388 },
+  dcab: { x: 1138, y: 154 },
+  pfemInset: { x: 344, y: 684 },
+  legend: { x: 1098, y: 682 }
 };
 
 const flowSequence: InteractiveKey[] = [
@@ -271,6 +271,16 @@ function regionSubtitle(key: InteractiveKey, viewMode: ViewMode): string {
   return (viewMode === "product" ? productSubtitles[key] : technicalSubtitles[key]) ?? "";
 }
 
+function regionToneLabel(key: InteractiveKey, viewMode: ViewMode): string {
+  if (!key.startsWith("pfem") || key === "pfemInset") {
+    return "";
+  }
+  if (viewMode === "product") {
+    return "Detail branch";
+  }
+  return "PFEM stage";
+}
+
 function getActiveDetailKey(key: InteractiveKey): InteractiveKey {
   if (key.startsWith("pfem")) {
     return key === "pfemInset" ? "pfemInset" : key;
@@ -345,7 +355,7 @@ function DiagramBox({
     >
       {regionKey === "input" || regionKey === "output" ? (
         <div className="relative flex h-full flex-col justify-between p-3">
-          <div className="mono text-[11px] uppercase tracking-[0.26em] text-ink/48">
+          <div className="mono text-[10px] uppercase tracking-[0.18em] text-ink/48">
             {regionTitle(regionKey, viewMode)}
           </div>
           <div className="mt-3 h-full rounded-[20px] border border-white/70 bg-[radial-gradient(circle_at_top_left,rgba(34,65,93,0.16),transparent_36%),linear-gradient(180deg,#ffffff_0%,#edf2f5_100%)] p-3">
@@ -359,10 +369,10 @@ function DiagramBox({
       ) : null}
 
       {regionKey === "stem" || regionKey === "concat" || regionKey === "fusion" || regionKey === "pixel" ? (
-        <div className="flex h-full flex-col justify-center px-3 text-center">
-          <p className="text-sm font-semibold text-ink">{regionTitle(regionKey, viewMode)}</p>
+        <div className="flex h-full flex-col justify-center px-3.5 text-center">
+          <p className="text-[13px] font-semibold leading-tight text-ink">{regionTitle(regionKey, viewMode)}</p>
           {regionSubtitle(regionKey, viewMode) ? (
-            <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-ink/48">
+            <p className="mt-1 text-[10px] uppercase tracking-[0.14em] leading-tight text-ink/48">
               {regionSubtitle(regionKey, viewMode)}
             </p>
           ) : null}
@@ -370,13 +380,13 @@ function DiagramBox({
       ) : null}
 
       {regionKey.startsWith("pfem") && regionKey !== "pfemInset" ? (
-        <div className="flex h-full flex-col justify-center px-3 text-center">
-          <div className="mono text-[11px] uppercase tracking-[0.24em] text-amber-700/70">
-            {viewMode === "product" ? "Panoramic detail" : "Panoramic Feature Extraction"}
+        <div className="flex h-full flex-col justify-center px-3.5 text-center">
+          <div className="mono text-[9px] uppercase tracking-[0.16em] leading-tight text-amber-700/70">
+            {regionToneLabel(regionKey, viewMode)}
           </div>
-          <p className="mt-2 text-base font-semibold text-ink">{regionTitle(regionKey, viewMode)}</p>
-          <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-ink/46">
-            {viewMode === "product" ? "repeatable stage" : "LFEB + Transformer + ESAB"}
+          <p className="mt-2 text-[15px] font-semibold leading-snug text-ink">{regionTitle(regionKey, viewMode)}</p>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.08em] leading-snug text-ink/46">
+            {viewMode === "product" ? "repeatable stage" : "LFEB + context + ESAB"}
           </p>
         </div>
       ) : null}
@@ -385,42 +395,42 @@ function DiagramBox({
         <div className="flex h-full flex-col p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="mono text-[11px] uppercase tracking-[0.28em] text-violet-700/70">
+              <p className="mono text-[10px] uppercase tracking-[0.2em] text-violet-700/70">
                 Upper branch
               </p>
-              <h3 className="mt-2 text-lg font-semibold text-ink">{regionTitle(regionKey, viewMode)}</h3>
-              <p className="mt-2 text-xs leading-5 text-ink/62">
+              <h3 className="mt-2 text-[17px] font-semibold leading-tight text-ink">{regionTitle(regionKey, viewMode)}</h3>
+              <p className="mt-2 text-[11px] leading-5 text-ink/62">
                 {viewMode === "product"
                   ? "Structured multi-scale context and edge-aware refinement."
                   : "Split features into a lightweight DCAB path and adaptive fusion output."}
               </p>
             </div>
-            <div className="rounded-full bg-white/75 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-violet-700">
+            <div className="rounded-full bg-white/75 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-violet-700">
               {viewMode === "product" ? "context" : "ESPM"}
             </div>
           </div>
 
-          <div className="mt-4 grid flex-1 gap-3 md:grid-cols-[1fr_1.15fr_0.8fr]">
+          <div className="mt-4 grid flex-1 gap-3 md:grid-cols-[0.95fr_1.2fr_0.9fr]">
             <div className="rounded-[18px] border border-white/60 bg-white/75 p-3 text-center">
-              <p className="text-sm font-semibold">{viewMode === "product" ? "Split channels" : "Split"}</p>
-              <p className="mt-2 text-xs text-ink/55">
+              <p className="text-[13px] font-semibold leading-tight">{viewMode === "product" ? "Split channels" : "Split"}</p>
+              <p className="mt-2 text-[11px] leading-4 text-ink/55">
                 {viewMode === "product" ? "Separate structured signals" : "channel partition"}
               </p>
             </div>
             <div className="rounded-[18px] border border-white/60 bg-white/78 p-3">
               <div className="grid gap-2">
-                <div className="rounded-[14px] bg-violet-50 px-3 py-2 text-left text-sm font-semibold text-ink">
+                <div className="rounded-[14px] bg-violet-50 px-3 py-2 text-left text-[13px] font-semibold leading-tight text-ink">
                   {viewMode === "product" ? "Edge-aware refinement cell" : "DCAB"}
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px] uppercase tracking-[0.18em] text-ink/55">
+                <div className="grid grid-cols-2 gap-2 text-[10px] uppercase tracking-[0.12em] text-ink/55">
                   <div className="rounded-[12px] bg-white px-3 py-2 text-center">Conv</div>
                   <div className="rounded-[12px] bg-white px-3 py-2 text-center">CA</div>
                 </div>
               </div>
             </div>
             <div className="rounded-[18px] border border-white/60 bg-white/75 p-3 text-center">
-              <p className="text-sm font-semibold">{viewMode === "product" ? "Adaptive merge" : "AF"}</p>
-              <p className="mt-2 text-xs text-ink/55">
+              <p className="text-[13px] font-semibold leading-tight">{viewMode === "product" ? "Adaptive merge" : "AF"}</p>
+              <p className="mt-2 text-[11px] leading-4 text-ink/55">
                 {viewMode === "product" ? "Feed fusion-ready context" : "adaptive fusion"}
               </p>
             </div>
@@ -432,16 +442,16 @@ function DiagramBox({
         <div className="flex h-full flex-col p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="mono text-[11px] uppercase tracking-[0.28em] text-fuchsia-700/70">
+              <p className="mono text-[10px] uppercase tracking-[0.2em] text-fuchsia-700/70">
                 Zoomed inset
               </p>
-              <h3 className="mt-2 text-lg font-semibold text-ink">{regionTitle(regionKey, viewMode)}</h3>
+              <h3 className="mt-2 text-[17px] font-semibold leading-tight text-ink">{regionTitle(regionKey, viewMode)}</h3>
             </div>
-            <div className="rounded-full bg-white/80 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-fuchsia-700">
+            <div className="rounded-full bg-white/80 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-fuchsia-700">
               {viewMode === "product" ? "efficient channel flow" : "split -> fuse"}
             </div>
           </div>
-          <div className="mt-4 flex flex-1 items-center gap-2">
+          <div className="mt-4 flex flex-1 items-center gap-1.5">
             {[
               viewMode === "product" ? "Split" : "Split",
               "Conv",
@@ -449,11 +459,11 @@ function DiagramBox({
               "Concat",
               "Conv"
             ].map((label, index) => (
-              <div key={label} className="flex min-w-0 flex-1 items-center gap-2">
-                <div className="flex-1 rounded-[16px] border border-fuchsia-100 bg-white/80 px-2 py-3 text-center text-xs font-semibold text-ink">
+              <div key={label} className="flex min-w-0 flex-1 items-center gap-1.5">
+                <div className="flex-1 rounded-[16px] border border-fuchsia-100 bg-white/80 px-2 py-3 text-center text-[11px] font-semibold leading-tight text-ink">
                   {label}
                 </div>
-                {index < 4 ? <div className="h-0.5 w-3 shrink-0 bg-fuchsia-300" /> : null}
+                {index < 4 ? <div className="h-0.5 w-2.5 shrink-0 bg-fuchsia-300" /> : null}
               </div>
             ))}
           </div>
@@ -464,17 +474,17 @@ function DiagramBox({
         <div className="flex h-full flex-col p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="mono text-[11px] uppercase tracking-[0.28em] text-orange-700/70">
+              <p className="mono text-[10px] uppercase tracking-[0.2em] text-orange-700/70">
                 Submodule view
               </p>
-              <h3 className="mt-2 text-lg font-semibold text-ink">{regionTitle(regionKey, viewMode)}</h3>
-              <p className="mt-2 text-xs leading-5 text-ink/62">
+              <h3 className="mt-2 text-[17px] font-semibold leading-tight text-ink">{regionTitle(regionKey, viewMode)}</h3>
+              <p className="mt-2 text-[11px] leading-5 text-ink/62">
                 {viewMode === "product"
                   ? "Local textures, global context, and spatial attention are blended inside every PFEM stage."
                   : "PFEM repeats LFEB, a transformer-style context block, and ESAB."}
               </p>
             </div>
-            <div className="rounded-full bg-white/75 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-orange-700">
+            <div className="rounded-full bg-white/75 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-orange-700">
               {viewMode === "product" ? "detail cell" : "PFEM"}
             </div>
           </div>
@@ -489,7 +499,7 @@ function DiagramBox({
                 key={label}
                 className="rounded-[18px] border border-orange-100 bg-white/80 px-4 py-5 text-center"
               >
-                <p className="text-sm font-semibold text-ink">{label}</p>
+                <p className="text-[13px] font-semibold leading-tight text-ink">{label}</p>
               </div>
             ))}
           </div>
@@ -500,20 +510,20 @@ function DiagramBox({
         <div className="flex h-full flex-col p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">
+              <p className="mono text-[10px] uppercase tracking-[0.2em] text-slate-500">
                 Reference guide
               </p>
-              <h3 className="mt-2 text-lg font-semibold text-ink">{regionTitle(regionKey, viewMode)}</h3>
+              <h3 className="mt-2 text-[17px] font-semibold leading-tight text-ink">{regionTitle(regionKey, viewMode)}</h3>
             </div>
-            <div className="rounded-full bg-white/80 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-slate-600">
+            <div className="rounded-full bg-white/80 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-600">
               abbreviations
             </div>
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {legendItems.map((item) => (
               <div key={item.short} className="rounded-[16px] border border-slate-200 bg-white/80 px-3 py-3">
-                <p className="mono text-[11px] uppercase tracking-[0.22em] text-slate-500">{item.short}</p>
-                <p className="mt-1 text-sm text-ink/72">{item.long}</p>
+                <p className="mono text-[10px] uppercase tracking-[0.16em] text-slate-500">{item.short}</p>
+                <p className="mt-1 text-[13px] leading-5 text-ink/72">{item.long}</p>
               </div>
             ))}
           </div>
@@ -603,7 +613,7 @@ export function EPNetArchitectureDiagram() {
       >
         <div className="overflow-x-auto pb-2">
           <div
-            className="relative min-w-[1180px] rounded-[28px] border border-dusk/8 bg-[radial-gradient(circle_at_top_left,rgba(98,80,187,0.08),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(194,84,47,0.07),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.95)_0%,rgba(247,242,236,0.9)_100%)]"
+            className="relative min-w-[1240px] rounded-[28px] border border-dusk/8 bg-[radial-gradient(circle_at_top_left,rgba(98,80,187,0.08),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(194,84,47,0.07),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.95)_0%,rgba(247,242,236,0.9)_100%)]"
             style={{ aspectRatio: `${VIEWBOX.width} / ${VIEWBOX.height}` }}
           >
             <svg

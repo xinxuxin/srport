@@ -85,6 +85,162 @@ Key directories:
 - `outputs`
   - checkpoints, logs, evaluation artifacts, profiles, and exports
 
+## Detailed Directory Guide
+
+### `docs/`
+
+The repository includes both study guides and execution reports. The files below
+are intentionally kept in the repo root `docs/` folder so the project can be
+read both as a codebase and as a presentation artifact set.
+
+```text
+docs/
+├── code_reading_guide.md
+├── config_reference.md
+├── dataset_setup.md
+├── demo_checklist.md
+├── design_notes_for_presentation.md
+├── edge_preset_notes.md
+├── epnet_assumptions.md
+├── final_audit_report.md
+├── first_real_x4_run_report.md
+├── interim_x4_training_status.md
+├── model_ablation_results.json
+├── model_ablation_results.md
+├── model_audit_report.md
+├── model_optimization_report.md
+├── model_test_checklist.md
+├── optimization_report.md
+├── paper_to_code_map.md
+├── presentation_master_guide.md
+├── real_training_workflow.md
+└── system_deployment_report.md
+```
+
+Document index:
+
+- `presentation_master_guide.md`
+  - the most detailed project narrative for slides, demos, technical
+    interviews, and system storytelling
+- `design_notes_for_presentation.md`
+  - shorter presentation-focused notes on how to explain the design
+- `paper_to_code_map.md`
+  - explicit mapping between EPNet paper concepts and implementation files
+- `code_reading_guide.md`
+  - recommended reading order for model, training, and deployment code
+- `config_reference.md`
+  - explanation of model, data, and training config files
+- `dataset_setup.md`
+  - real-dataset download, placement, and preparation instructions
+- `real_training_workflow.md`
+  - the end-to-end real-data training path and artifact expectations
+- `edge_preset_notes.md`
+  - why `edge_default` became the mainline deployed preset
+- `epnet_assumptions.md`
+  - documented approximations where the paper was underspecified
+- `model_audit_report.md`
+  - model-only audit, fixes, and limitations
+- `model_optimization_report.md`
+  - implemented model-side optimizations and future suggestions
+- `model_test_checklist.md`
+  - exact commands to rerun model validation
+- `final_audit_report.md`
+  - repository-level audit after backend/frontend/deployment stabilization
+- `optimization_report.md`
+  - broader system optimization notes beyond the model-only scope
+- `first_real_x4_run_report.md`
+  - initial report for the first real-data x4 run launch
+- `interim_x4_training_status.md`
+  - recorded status from the long-running x4 training continuation phase
+- `system_deployment_report.md`
+  - inference artifact choice, runtime backend behavior, and end-to-end
+    serving validation
+- `demo_checklist.md`
+  - practical demo-day checklist
+- `model_ablation_results.md`
+  - human-readable ablation summary
+- `model_ablation_results.json`
+  - machine-readable ablation results
+
+### `configs/`
+
+```text
+configs/
+├── data/
+│   ├── div2k_x2.yaml
+│   ├── div2k_x4.yaml
+│   └── synthetic_x2.yaml
+├── model/
+│   ├── balanced_quality.yaml
+│   ├── edge_default.yaml
+│   ├── edge_default_x2.yaml
+│   ├── edge_tiny.yaml
+│   └── paper_like.yaml
+└── train/
+    ├── local_full_x2.yaml
+    ├── local_full_x4.yaml
+    └── smoke.yaml
+```
+
+Config role summary:
+
+- `configs/model/*`
+  - architecture preset definitions and scale-oriented model choices
+- `configs/data/*`
+  - dataset roots, real-vs-synthetic path selection, and benchmark settings
+- `configs/train/*`
+  - smoke training, local full x2, and local full x4 schedules
+
+### `scripts/`
+
+These are the repo-native executable helpers that tie the config-driven system
+into simple commands:
+
+```text
+scripts/
+├── download_real_data.py
+├── prepare_real_data.py
+├── run_local_full_x2.py
+├── run_local_full_x4.py
+└── run_local.sh
+```
+
+- `download_real_data.py`
+  - download or guide setup for DIV2K and benchmark datasets
+- `prepare_real_data.py`
+  - generate bicubic LR caches for x2/x3/x4
+- `run_local_full_x2.py`
+  - local real-data training path for x2
+- `run_local_full_x4.py`
+  - mainline real-data training path for x4
+- `run_local.sh`
+  - one-command frontend + backend demo launcher
+
+### `outputs/`
+
+This folder is the artifact hub for training, evaluation, export, and
+deployment. The mainline deployed run currently lives under:
+
+- `/Users/macbook/Desktop/epnet/outputs/run_x4_edge_default`
+
+Typical structure:
+
+```text
+outputs/run_x4_edge_default/
+├── best.pt
+├── latest.pt
+├── inference.pt
+├── stepXXXX.pt
+├── manifest.json
+├── train_log.jsonl
+├── eval.json
+├── eval.md
+├── profile.json
+├── profile.md
+├── model.onnx
+└── final_summary.json
+```
+
 ## Architecture Overview
 
 ### Product Language
@@ -358,6 +514,24 @@ Start with:
 - presentation notes:
   [/Users/macbook/Desktop/epnet/docs/design_notes_for_presentation.md](/Users/macbook/Desktop/epnet/docs/design_notes_for_presentation.md)
 
+## Documentation Navigation
+
+If you are opening the repository on GitHub and want a single reading plan,
+follow this order:
+
+1. `README.md`
+2. [/Users/macbook/Desktop/epnet/docs/presentation_master_guide.md](/Users/macbook/Desktop/epnet/docs/presentation_master_guide.md)
+3. [/Users/macbook/Desktop/epnet/docs/paper_to_code_map.md](/Users/macbook/Desktop/epnet/docs/paper_to_code_map.md)
+4. [/Users/macbook/Desktop/epnet/docs/code_reading_guide.md](/Users/macbook/Desktop/epnet/docs/code_reading_guide.md)
+5. [/Users/macbook/Desktop/epnet/docs/config_reference.md](/Users/macbook/Desktop/epnet/docs/config_reference.md)
+6. [/Users/macbook/Desktop/epnet/docs/system_deployment_report.md](/Users/macbook/Desktop/epnet/docs/system_deployment_report.md)
+
+If you want only the shortest path to the final project state, read:
+
+- [/Users/macbook/Desktop/epnet/docs/first_real_x4_run_report.md](/Users/macbook/Desktop/epnet/docs/first_real_x4_run_report.md)
+- [/Users/macbook/Desktop/epnet/docs/system_deployment_report.md](/Users/macbook/Desktop/epnet/docs/system_deployment_report.md)
+- [/Users/macbook/Desktop/epnet/docs/presentation_master_guide.md](/Users/macbook/Desktop/epnet/docs/presentation_master_guide.md)
+
 ## Known Limitations
 
 - The repository is a documented, engineering-grounded EPNet implementation,
@@ -388,3 +562,5 @@ Start with:
   [/Users/macbook/Desktop/epnet/docs/system_deployment_report.md](/Users/macbook/Desktop/epnet/docs/system_deployment_report.md)
 - first real x4 run report:
   [/Users/macbook/Desktop/epnet/docs/first_real_x4_run_report.md](/Users/macbook/Desktop/epnet/docs/first_real_x4_run_report.md)
+- presentation master guide:
+  [/Users/macbook/Desktop/epnet/docs/presentation_master_guide.md](/Users/macbook/Desktop/epnet/docs/presentation_master_guide.md)

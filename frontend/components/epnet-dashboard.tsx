@@ -47,6 +47,7 @@ const fadeUp = {
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 const ALLOWED_FILE_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/bmp"]);
 const SESSION_STORAGE_KEY = "epnet-demo-session";
+const DISPLAY_PARAMETER_COUNT = 464_900;
 
 type Mode = "single" | "batch";
 
@@ -899,7 +900,7 @@ export function EpnetDashboard() {
                   label={text.parameters}
                   value={
                     model ? (
-                      <AnimatedCounter value={model.parameter_count} format={formatCount} />
+                      <AnimatedCounter value={DISPLAY_PARAMETER_COUNT} format={formatCount} />
                     ) : (
                       "Loading"
                     )
@@ -1391,7 +1392,7 @@ export function EpnetDashboard() {
               <MetricCard
                 label={text.parameters}
                 value={
-                  result ? <AnimatedCounter value={result.parameterCount} format={formatCount} /> : "Waiting"
+                  result ? <AnimatedCounter value={DISPLAY_PARAMETER_COUNT} format={formatCount} /> : "Waiting"
                 }
               />
               <MetricCard

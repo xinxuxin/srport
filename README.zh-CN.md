@@ -8,6 +8,7 @@ the root.
 Primary guide:
 
 - [/Users/macbook/Desktop/epnet/README.md](/Users/macbook/Desktop/epnet/README.md)
+- [/Users/macbook/Desktop/epnet/docs/presentation_master_guide.md](/Users/macbook/Desktop/epnet/docs/presentation_master_guide.md)
 
 ## What This Repository Is
 
@@ -110,6 +111,22 @@ PYTHONPATH=src .venv/bin/python -m epnet.evaluate \
   [/Users/macbook/Desktop/epnet/docs/dataset_setup.md](/Users/macbook/Desktop/epnet/docs/dataset_setup.md)
 - real training workflow:
   [/Users/macbook/Desktop/epnet/docs/real_training_workflow.md](/Users/macbook/Desktop/epnet/docs/real_training_workflow.md)
+
+## Documentation Structure
+
+The full documentation index now lives in the English README so there is a
+single authoritative guide to:
+
+- the complete `docs/` file structure
+- config structure under `configs/`
+- executable helper scripts under `scripts/`
+- mainline artifacts under `outputs/run_x4_edge_default/`
+
+Recommended entrypoints:
+
+1. [/Users/macbook/Desktop/epnet/README.md](/Users/macbook/Desktop/epnet/README.md)
+2. [/Users/macbook/Desktop/epnet/docs/presentation_master_guide.md](/Users/macbook/Desktop/epnet/docs/presentation_master_guide.md)
+3. [/Users/macbook/Desktop/epnet/docs/code_reading_guide.md](/Users/macbook/Desktop/epnet/docs/code_reading_guide.md)
 
 ## Deployment Defaults
 
